@@ -58,7 +58,7 @@ const MainContent = () => {
       <Navbar />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
         
         {/* Render Tab Views */}
         {activeTab === 'new' && <JournalEntryForm />}
@@ -229,8 +229,11 @@ const MainContent = () => {
 
       </main>
 
-      {/* Smartphone Bottom Touch Navigation Bar (Fixed) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/95 border-t border-slate-800/90 z-40 backdrop-blur-xl px-4 py-2 flex items-center justify-around">
+      {/* Smartphone Bottom Touch Navigation Bar (Fixed with Safe Area Support) */}
+      <nav 
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+        className="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/95 border-t border-slate-800/90 z-40 backdrop-blur-xl px-4 pt-2 flex items-center justify-around"
+      >
         <button
           onClick={() => setActiveTab('feed')}
           className={`flex flex-col items-center justify-center space-y-1 p-2 rounded-xl text-[11px] font-medium transition-colors ${

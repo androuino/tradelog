@@ -37,7 +37,10 @@ export const Navbar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
-    <header className="bg-slate-900/85 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md">
+    <header 
+      style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+      className="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md transition-all"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
