@@ -19,7 +19,11 @@ let auth = null;
 let googleProvider = null;
 let appleProvider = null;
 
-if (firebaseConfig.apiKey) {
+export const isFirebaseConfigured = () => {
+  return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+};
+
+if (isFirebaseConfigured()) {
   try {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
@@ -34,7 +38,7 @@ export { auth };
 
 export const signInWithGoogle = async () => {
   if (!auth || !googleProvider) {
-    return { user: null, error: "Firebase credentials not yet provided in .env" };
+    return { user: null, error: "Firebase configuration missing" };
   }
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -54,7 +58,7 @@ export const signInWithGoogle = async () => {
 
 export const signInWithApple = async () => {
   if (!auth || !appleProvider) {
-    return { user: null, error: "Firebase credentials not yet provided in .env" };
+    return { user: null, error: "Firebase configuration missing" };
   }
   try {
     const result = await signInWithPopup(auth, appleProvider);

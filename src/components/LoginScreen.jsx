@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useJournal } from '../context/JournalContext';
-import { signInWithGoogle, signInWithApple } from '../firebase';
+import { signInWithGoogle, signInWithApple, isFirebaseConfigured } from '../firebase';
 import { 
   ShieldCheck, 
   Lock, 
@@ -11,7 +11,10 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  UserCheck
+  UserCheck,
+  AlertCircle,
+  X,
+  ExternalLink
 } from 'lucide-react';
 
 export const LoginScreen = () => {
@@ -23,29 +26,68 @@ export const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // State for setup modal when Firebase keys are not configured yet
+  const [showFirebaseModal, setShowFirebaseModal] = useState(false);
+  const [modalProvider, setModalProvider] = useState('Google');
+  const [authErrorMessage, setAuthErrorMessage] = useState('');
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    const { user, error } = await signInWithGoogle();
-    if (user) {
-      loginWithOAuth('Google', user.email, user.name, user.avatar);
-    } else {
-      // Fallback demo user if Firebase config keys are not yet configured in console
-      loginWithOAuth('Google', 'trader@gmail.com', 'Google Trader');
+    if (!isFirebaseConfigured()) {
+      setModalProvider('Google');
+      setShowFirebaseModal(true);
+      return;
     }
-    setIsLoading(false);
+
+    setIsLoading(true);
+    setAuthErrorMessage('');
+
+    // Timeout safety for mobile browsers so it never hangs
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Sign-in request timed out. Please check popup permissions.')), 15000)
+    );
+
+    try {
+      const { user, error } = await Promise.race([signInWithGoogle(), timeoutPromise]);
+      if (user) {
+        loginWithOAuth('Google', user.email, user.name, user.avatar);
+      } else {
+        setAuthErrorMessage(error || 'Google Authentication failed.');
+      }
+    } catch (err) {
+      setAuthErrorMessage(err.message || 'Google Auth Popup blocked or closed.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAppleSignIn = async () => {
-    setIsLoading(true);
-    const { user, error } = await signInWithApple();
-    if (user) {
-      loginWithOAuth('Apple', user.email, user.name, user.avatar);
-    } else {
-      // Fallback demo user if Firebase config keys are not yet configured in console
-      loginWithOAuth('Apple', 'trader@icloud.com', 'Apple Trader');
+    if (!isFirebaseConfigured()) {
+      setModalProvider('Apple');
+      setShowFirebaseModal(true);
+      return;
     }
-    setIsLoading(false);
+
+    setIsLoading(true);
+    setAuthErrorMessage('');
+
+    try {
+      const { user, error } = await signInWithApple();
+      if (user) {
+        loginWithOAuth('Apple', user.email, user.name, user.avatar);
+      } else {
+        setAuthErrorMessage(error || 'Apple Authentication failed.');
+      }
+    } catch (err) {
+      setAuthErrorMessage(err.message || 'Apple Auth Popup blocked or closed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoSignIn = () => {
+    setShowFirebaseModal(false);
+    loginWithOAuth(modalProvider, `trader@${modalProvider.toLowerCase()}.com`, `${modalProvider} Demo Trader`);
   };
 
   const handleEmailSubmit = (e) => {
@@ -133,6 +175,17 @@ export const LoginScreen = () => {
             PIN Lock
           </button>
         </div>
+
+        {/* Error message banner */}
+        {authErrorMessage && (
+          <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-start space-x-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1">{authErrorMessage}</div>
+            <button onClick={() => setAuthErrorMessage('')} className="text-slate-400 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* 1. SOCIAL OAUTH LOGIN */}
         {authMode === 'social' && (
@@ -269,6 +322,59 @@ export const LoginScreen = () => {
         </div>
 
       </div>
+
+      {/* FIREBASE CONFIG SETUP MODAL */}
+      {showFirebaseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm">
+                <AlertCircle className="w-5 h-5" />
+                <span>{modalProvider} Auth Setup Required</span>
+              </div>
+              <button 
+                onClick={() => setShowFirebaseModal(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Real <strong>{modalProvider} OAuth Sign-In</strong> requires linking your free <strong>Firebase API Keys</strong> so Google/Apple can verify your domain.
+            </p>
+
+            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 text-[11px] text-slate-400 space-y-1 font-mono">
+              <p className="text-emerald-400 font-semibold mb-1">To enable real Google Auth on Netlify:</p>
+              <p>1. Go to console.firebase.google.com</p>
+              <p>2. Enable Google Sign-in provider</p>
+              <p>3. Copy web app firebaseConfig keys into Netlify Site Environment Variables</p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleDemoSignIn}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg transition-all"
+              >
+                🚀 Continue in Demo Mode
+              </button>
+              
+              <a
+                href="https://console.firebase.google.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs py-2.5 px-4 rounded-xl transition-colors"
+              >
+                <span>Firebase Console</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
