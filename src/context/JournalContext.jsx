@@ -41,14 +41,14 @@ export const JournalProvider = ({ children }) => {
   }, [entries]);
 
   // Auth helper actions
-  const loginWithOAuth = (provider, email, name) => {
+  const loginWithOAuth = (provider, email, name, avatar) => {
     const userData = {
       name: name || 'Trader Pro',
       email: email || `trader@${provider.toLowerCase()}.com`,
       provider,
-      avatar: provider === 'Google' 
+      avatar: avatar || (provider === 'Google' 
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80')
     };
     setUser(userData);
     setIsAuthenticated(true);

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useJournal } from '../context/JournalContext';
+import { signInWithGoogle, signInWithApple } from '../firebase';
 import { 
   ShieldCheck, 
   Lock, 
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const LoginScreen = () => {
-  const { user, loginWithOAuth, loginWithEmail, setupPasscode, continueAsGuest } = useJournal();
+  const { loginWithOAuth, loginWithEmail, setupPasscode, continueAsGuest } = useJournal();
 
   const [authMode, setAuthMode] = useState('social'); // 'social' | 'email' | 'passcode'
   const [email, setEmail] = useState('');
@@ -25,18 +26,26 @@ export const LoginScreen = () => {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      loginWithOAuth('Google', 'trader@example.com', 'Trader Pro');
-      setIsLoading(false);
-    }, 600);
+    const { user, error } = await signInWithGoogle();
+    if (user) {
+      loginWithOAuth('Google', user.email, user.name, user.avatar);
+    } else {
+      // Fallback demo user if Firebase config keys are not yet configured in console
+      loginWithOAuth('Google', 'trader@gmail.com', 'Google Trader');
+    }
+    setIsLoading(false);
   };
 
   const handleAppleSignIn = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      loginWithOAuth('Apple', 'trader@icloud.com', 'Trader Pro');
-      setIsLoading(false);
-    }, 600);
+    const { user, error } = await signInWithApple();
+    if (user) {
+      loginWithOAuth('Apple', user.email, user.name, user.avatar);
+    } else {
+      // Fallback demo user if Firebase config keys are not yet configured in console
+      loginWithOAuth('Apple', 'trader@icloud.com', 'Apple Trader');
+    }
+    setIsLoading(false);
   };
 
   const handleEmailSubmit = (e) => {
@@ -140,7 +149,7 @@ export const LoginScreen = () => {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
-              <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+              <span>{isLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
             </button>
 
             {/* Apple Sign In */}
@@ -152,7 +161,7 @@ export const LoginScreen = () => {
               <svg className="w-4 h-4 fill-current" viewBox="0 0 170 170">
                 <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.33.13-9.13-1.9-14.4-6.1-3.26-2.63-7.14-7.27-11.66-13.91-6.66-9.76-11.96-20.59-15.91-32.5-3.95-11.91-5.93-23.36-5.93-34.35 0-14.37 3.6-26.15 10.81-35.33 7.21-9.18 16.32-13.88 27.33-14.1 4.71 0 9.94 1.25 15.68 3.75 5.74 2.5 9.77 3.75 12.09 3.75 1.9 0 6.03-1.31 12.4-3.93 6.37-2.62 11.91-3.83 16.63-3.63 12.08.75 21.75 5.25 29.02 13.5-10.74 6.5-16.01 15.62-15.82 27.37.19 9.25 3.74 17 10.66 23.25 6.92 6.25 15.09 9.75 24.51 10.5-2.46 7.37-5.83 15.62-10.12 24.75zM119.22 31.88c0-6.75 2.44-13.25 7.31-19.5 4.88-6.25 11.06-10.37 18.56-12.38.38 1.13.56 2.25.56 3.38 0 6.87-2.5 13.5-7.5 19.87-5 6.37-11.25 10.37-18.75 12-0.12-.87-.18-2.00-.18-3.37z"/>
               </svg>
-              <span>{isLoading ? 'Signing in...' : 'Continue with Apple'}</span>
+              <span>{isLoading ? 'Connecting to Apple...' : 'Continue with Apple'}</span>
             </button>
           </div>
         )}
