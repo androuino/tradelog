@@ -3,30 +3,39 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   OAuthProvider, 
-  signInWithPopup, 
-  signOut as firebaseSignOut 
+  signInWithPopup 
 } from "firebase/auth";
 
-// Your web app's Firebase configuration
-// Get these from Google Firebase Console (https://console.firebase.google.com)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDemoKeyForTradeLogJournalApp",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "tradelog-app.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "tradelog-app",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "tradelog-app.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1234567890",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1234567890:web:abcdef123456"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let auth = null;
+let googleProvider = null;
+let appleProvider = null;
 
-export const googleProvider = new GoogleAuthProvider();
-export const appleProvider = new OAuthProvider('apple.com');
+if (firebaseConfig.apiKey) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    appleProvider = new OAuthProvider('apple.com');
+  } catch (err) {
+    console.warn("Firebase Init Error:", err);
+  }
+}
 
-// Helper to trigger real Google popup
+export { auth };
+
 export const signInWithGoogle = async () => {
+  if (!auth || !googleProvider) {
+    return { user: null, error: "Firebase credentials not yet provided in .env" };
+  }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return {
@@ -39,13 +48,14 @@ export const signInWithGoogle = async () => {
       error: null
     };
   } catch (error) {
-    console.warn("Firebase Auth Google Warning/Demo Fallback:", error.message);
     return { user: null, error: error.message };
   }
 };
 
-// Helper to trigger real Apple popup
 export const signInWithApple = async () => {
+  if (!auth || !appleProvider) {
+    return { user: null, error: "Firebase credentials not yet provided in .env" };
+  }
   try {
     const result = await signInWithPopup(auth, appleProvider);
     return {
@@ -58,7 +68,6 @@ export const signInWithApple = async () => {
       error: null
     };
   } catch (error) {
-    console.warn("Firebase Auth Apple Warning/Demo Fallback:", error.message);
     return { user: null, error: error.message };
   }
 };
