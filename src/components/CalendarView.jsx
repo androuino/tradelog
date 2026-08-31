@@ -161,10 +161,10 @@ export const CalendarView = () => {
                   key={dateString}
                   onClick={() => setSelectedEntry(entry)}
                   className={`h-20 sm:h-28 rounded-xl p-2 flex flex-col justify-between border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md relative overflow-hidden group ${isWin
-                      ? 'bg-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 text-emerald-300'
-                      : isLoss
-                        ? 'bg-rose-950/40 border-rose-500/40 hover:border-rose-400 text-rose-300'
-                        : 'bg-slate-800/80 border-slate-700 hover:border-slate-500 text-slate-200'
+                    ? 'bg-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 text-emerald-300'
+                    : isLoss
+                      ? 'bg-rose-950/40 border-rose-500/40 hover:border-rose-400 text-rose-300'
+                      : 'bg-slate-800/80 border-slate-700 hover:border-slate-500 text-slate-200'
                     }`}
                 >
                   <div className="flex items-center justify-between">

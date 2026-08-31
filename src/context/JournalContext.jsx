@@ -50,7 +50,7 @@ export const JournalProvider = ({ children }) => {
     if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
       fetchJournalFromCloud(syncId).then(cloudEntries => {
-        if (cloudEntries && Array.isArray(cloudEntries) && cloudEntries.length > 0) {
+        if (cloudEntries && Array.isArray(cloudEntries)) {
           setEntries(cloudEntries);
           saveEntriesToStorage(cloudEntries);
         }
