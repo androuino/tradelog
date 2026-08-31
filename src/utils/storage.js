@@ -5,7 +5,7 @@ const STORAGE_KEY = 'trader_journal_entries_v1';
 export const loadEntriesFromStorage = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return null;
+    if (data === null || data === undefined) return null;
     return JSON.parse(data);
   } catch (err) {
     console.error('Error loading entries from localStorage:', err);
