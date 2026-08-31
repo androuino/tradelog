@@ -15,7 +15,8 @@ import {
   Lock,
   LogOut,
   User,
-  ShieldCheck
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -30,6 +31,7 @@ export const Navbar = () => {
     exportJournalJSON,
     importJournalJSON,
     resetToSampleData,
+    clearAllEntries,
     user,
     logout
   } = useJournal();
@@ -206,6 +208,14 @@ export const Navbar = () => {
                       {user?.provider || 'Protected'}
                     </span>
                   </div>
+
+                  <button
+                    onClick={clearAllEntries}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors mb-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Clear All Entries (Fresh Start)</span>
+                  </button>
 
                   <button
                     onClick={logout}

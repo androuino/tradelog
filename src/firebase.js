@@ -5,6 +5,13 @@ import {
   OAuthProvider, 
   signInWithPopup 
 } from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -16,6 +23,7 @@ const firebaseConfig = {
 };
 
 let auth = null;
+let db = null;
 let googleProvider = null;
 let appleProvider = null;
 
@@ -27,6 +35,7 @@ if (isFirebaseConfigured()) {
   try {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
+    db = getFirestore(app);
     googleProvider = new GoogleAuthProvider();
     appleProvider = new OAuthProvider('apple.com');
   } catch (err) {
@@ -34,7 +43,7 @@ if (isFirebaseConfigured()) {
   }
 }
 
-export { auth };
+export { auth, db };
 
 export const signInWithGoogle = async () => {
   if (!auth || !googleProvider) {
@@ -44,6 +53,7 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
     return {
       user: {
+        id: result.user.uid,
         name: result.user.displayName || 'Google Trader',
         email: result.user.email,
         avatar: result.user.photoURL,
@@ -64,6 +74,7 @@ export const signInWithApple = async () => {
     const result = await signInWithPopup(auth, appleProvider);
     return {
       user: {
+        id: result.user.uid,
         name: result.user.displayName || 'Apple Trader',
         email: result.user.email,
         avatar: result.user.photoURL,
@@ -73,5 +84,36 @@ export const signInWithApple = async () => {
     };
   } catch (error) {
     return { user: null, error: error.message };
+  }
+};
+
+// Firestore Sync Helpers
+export const syncJournalToCloud = async (userId, entries) => {
+  if (!db || !userId) return false;
+  try {
+    const userDocRef = doc(db, "journals", userId);
+    await setDoc(userDocRef, {
+      entries: entries,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn("Cloud Firestore Sync Warning:", err);
+    return false;
+  }
+};
+
+export const fetchJournalFromCloud = async (userId) => {
+  if (!db || !userId) return null;
+  try {
+    const userDocRef = doc(db, "journals", userId);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists() && docSnap.data().entries) {
+      return docSnap.data().entries;
+    }
+    return null;
+  } catch (err) {
+    console.warn("Cloud Firestore Fetch Warning:", err);
+    return null;
   }
 };

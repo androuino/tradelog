@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loadEntriesFromStorage, saveEntriesToStorage } from '../utils/storage';
 import { sampleEntries } from '../utils/sampleData';
+import { syncJournalToCloud, fetchJournalFromCloud } from '../firebase';
 
 const JournalContext = createContext();
 
@@ -17,10 +18,10 @@ export const JournalProvider = ({ children }) => {
 
   const [entries, setEntries] = useState(() => {
     const saved = loadEntriesFromStorage();
-    if (saved && Array.isArray(saved) && saved.length > 0) {
+    if (saved && Array.isArray(saved)) {
       return saved;
     }
-    return sampleEntries;
+    return [];
   });
 
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'new' | 'calendar' | 'analytics' | 'gallery'
@@ -35,10 +36,27 @@ export const JournalProvider = ({ children }) => {
   const [filterPlan, setFilterPlan] = useState('all'); // 'all' | 'yes' | 'partial' | 'no'
   const [filterMood, setFilterMood] = useState('all');
 
-  // Auto save to localStorage
+  // Auto save to localStorage & Cloud Sync (Firebase Firestore)
   useEffect(() => {
     saveEntriesToStorage(entries);
-  }, [entries]);
+    if (user && (user.id || user.email)) {
+      const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
+      syncJournalToCloud(syncId, entries);
+    }
+  }, [entries, user]);
+
+  // Load Cloud Data on login
+  useEffect(() => {
+    if (user && (user.id || user.email)) {
+      const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
+      fetchJournalFromCloud(syncId).then(cloudEntries => {
+        if (cloudEntries && Array.isArray(cloudEntries) && cloudEntries.length > 0) {
+          setEntries(cloudEntries);
+          saveEntriesToStorage(cloudEntries);
+        }
+      });
+    }
+  }, [user]);
 
   // Auth helper actions
   const loginWithOAuth = (provider, email, name, avatar) => {
@@ -204,6 +222,12 @@ export const JournalProvider = ({ children }) => {
     saveEntriesToStorage(sampleEntries);
   };
 
+  const clearAllEntries = () => {
+    setEntries([]);
+    saveEntriesToStorage([]);
+    setSelectedEntry(null);
+  };
+
   const openNewEntryForDate = (dateStr) => {
     setInitialDateForNewEntry(dateStr);
     setEditingEntry(null);
@@ -303,6 +327,7 @@ export const JournalProvider = ({ children }) => {
       updateEntry,
       deleteEntry,
       resetToSampleData,
+      clearAllEntries,
       exportJournalJSON,
       importJournalJSON,
       

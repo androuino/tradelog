@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, PlusCircle, TrendingUp, TrendingDown, Calend
 
 export const CalendarView = () => {
   const { entries, setSelectedEntry, openNewEntryForDate } = useJournal();
-  
+
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();
@@ -43,8 +43,8 @@ export const CalendarView = () => {
   const monthPnL = currentMonthEntries.reduce((acc, curr) => acc + (curr.pnl || 0), 0);
   const monthWins = currentMonthEntries.filter(e => e.pnl > 0).length;
   const monthLosses = currentMonthEntries.filter(e => e.pnl < 0).length;
-  const monthWinRate = currentMonthEntries.length > 0 
-    ? ((monthWins / currentMonthEntries.length) * 100).toFixed(0) 
+  const monthWinRate = currentMonthEntries.length > 0
+    ? ((monthWins / currentMonthEntries.length) * 100).toFixed(0)
     : '0';
 
   // Build calendar matrix
@@ -65,11 +65,11 @@ export const CalendarView = () => {
 
   return (
     <div className="max-w-5xl mx-auto pb-24 lg:pb-12 pt-4 px-4 sm:px-6">
-      
+
       {/* Top Header Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 mb-6 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          
+
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
               <CalendarIcon className="w-5 h-5" />
@@ -132,7 +132,7 @@ export const CalendarView = () => {
 
       {/* Calendar Grid Container */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
-        
+
         {/* Day of Week Headers */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -160,13 +160,12 @@ export const CalendarView = () => {
                 <div
                   key={dateString}
                   onClick={() => setSelectedEntry(entry)}
-                  className={`h-20 sm:h-28 rounded-xl p-2 flex flex-col justify-between border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md relative overflow-hidden group ${
-                    isWin 
-                      ? 'bg-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 text-emerald-300' 
-                      : isLoss 
-                      ? 'bg-rose-950/40 border-rose-500/40 hover:border-rose-400 text-rose-300' 
-                      : 'bg-slate-800/80 border-slate-700 hover:border-slate-500 text-slate-200'
-                  }`}
+                  className={`h-20 sm:h-28 rounded-xl p-2 flex flex-col justify-between border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md relative overflow-hidden group ${isWin
+                      ? 'bg-emerald-950/40 border-emerald-500/40 hover:border-emerald-400 text-emerald-300'
+                      : isLoss
+                        ? 'bg-rose-950/40 border-rose-500/40 hover:border-rose-400 text-rose-300'
+                        : 'bg-slate-800/80 border-slate-700 hover:border-slate-500 text-slate-200'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className={`text-xs font-bold ${isToday ? 'bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center' : ''}`}>
@@ -193,9 +192,8 @@ export const CalendarView = () => {
               <div
                 key={dateString}
                 onClick={() => openNewEntryForDate(dateString)}
-                className={`h-20 sm:h-28 rounded-xl p-2 flex flex-col justify-between border border-slate-800/60 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700 cursor-pointer transition-colors group ${
-                  isToday ? 'border-indigo-500/50 bg-indigo-500/5' : ''
-                }`}
+                className={`h-20 sm:h-28 rounded-xl p-2 flex flex-col justify-between border border-slate-800/60 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700 cursor-pointer transition-colors group ${isToday ? 'border-indigo-500/50 bg-indigo-500/5' : ''
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-bold ${isToday ? 'bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center' : 'text-slate-500'}`}>
