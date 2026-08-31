@@ -18,11 +18,10 @@ export const JournalProvider = ({ children }) => {
 
   const [entries, setEntries] = useState(() => {
     const saved = loadEntriesFromStorage();
-    if (saved !== null && Array.isArray(saved)) {
+    if (saved && Array.isArray(saved)) {
       return saved;
     }
-    saveEntriesToStorage(sampleEntries);
-    return sampleEntries;
+    return [];
   });
 
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'new' | 'calendar' | 'analytics' | 'gallery'
@@ -37,22 +36,10 @@ export const JournalProvider = ({ children }) => {
   const [filterPlan, setFilterPlan] = useState('all'); // 'all' | 'yes' | 'partial' | 'no'
   const [filterMood, setFilterMood] = useState('all');
 
-  // Helper to check if cloud sync should be active for current user
-  const isCloudSyncEnabled = (userData) => {
-    if (!userData) return false;
-    if (userData.provider === 'Local Storage' || userData.provider === 'Passcode PIN' || userData.isOffline) {
-      return false;
-    }
-    if (userData.email && (userData.email.endsWith('@tradelog.app') || userData.email.includes('local@'))) {
-      return false;
-    }
-    return isFirebaseConfigured();
-  };
-
   // Auto save to localStorage & Cloud Sync (Firebase Firestore)
   useEffect(() => {
     saveEntriesToStorage(entries);
-    if (isCloudSyncEnabled(user) && (user.id || user.email)) {
+    if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
       syncJournalToCloud(syncId, entries);
     }
@@ -60,11 +47,10 @@ export const JournalProvider = ({ children }) => {
 
   // Load Cloud Data on login
   useEffect(() => {
-    if (isCloudSyncEnabled(user) && (user.id || user.email)) {
+    if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
       fetchJournalFromCloud(syncId).then(cloudEntries => {
-        const localSaved = loadEntriesFromStorage();
-        if (localSaved === null && cloudEntries && Array.isArray(cloudEntries)) {
+        if (cloudEntries && Array.isArray(cloudEntries)) {
           setEntries(cloudEntries);
           saveEntriesToStorage(cloudEntries);
         }

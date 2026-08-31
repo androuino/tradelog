@@ -1,5 +1,5 @@
-// Service worker for offline PWA caching with Network-First strategy
-const CACHE_NAME = 'tradelog-v2';
+// Service worker for offline PWA caching
+const CACHE_NAME = 'tradelog-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,12 +7,12 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -25,42 +25,29 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
   );
+  self.clients.claim();
 });
 
-// Network-First strategy for HTML & App Navigation to avoid stale bundle 404s on fresh deploys
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-
-  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(event.request).then((cached) => cached || caches.match('/index.html'));
-        })
-    );
-    return;
-  }
-
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((response) => {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
         }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
         return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+      }).catch(() => {
+        return caches.match('/index.html');
+      });
+    })
   );
 });
