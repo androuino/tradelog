@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useJournal } from '../context/JournalContext';
 import { 
   BookOpen, 
@@ -16,7 +16,8 @@ import {
   LogOut,
   User,
   ShieldCheck,
-  Trash2
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -37,6 +38,28 @@ export const Navbar = () => {
   } = useJournal();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const profileRef = useRef(null);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   return (
     <header 
@@ -178,7 +201,7 @@ export const Navbar = () => {
             </div>
 
             {/* User Auth Profile Badge */}
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center space-x-2 p-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition-all"
@@ -210,8 +233,11 @@ export const Navbar = () => {
                   </div>
 
                   <button
-                    onClick={clearAllEntries}
-                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors mb-1"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowClearConfirm(true);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors mb-1 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Clear All Entries (Fresh Start)</span>
@@ -232,6 +258,48 @@ export const Navbar = () => {
 
         </div>
       </div>
+
+      {/* Clear All Entries Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Clear All Entries?</h3>
+                <p className="text-xs text-slate-400">Fresh Start Confirmation</p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to delete all journal entries? This action will remove all recorded trades, reflections, and metrics from your browser storage. This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearAllEntries();
+                  setShowClearConfirm(false);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Clear All Entries</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
