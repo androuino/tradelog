@@ -32,6 +32,17 @@ export const LoginScreen = () => {
   const [modalProvider, setModalProvider] = useState('Google');
   const [authErrorMessage, setAuthErrorMessage] = useState('');
 
+  // Check for OAuth mobile redirect completion on page mount
+  React.useEffect(() => {
+    if (isFirebaseConfigured()) {
+      checkRedirectResult().then(user => {
+        if (user) {
+          loginWithOAuth(user.provider, user.email, user.name, user.avatar, user.id);
+        }
+      });
+    }
+  }, []);
+
   const handleGoogleSignIn = async () => {
     if (!isFirebaseConfigured()) {
       setModalProvider('Google');
@@ -48,14 +59,17 @@ export const LoginScreen = () => {
     );
 
     try {
-      const { user, error } = await Promise.race([signInWithGoogle(), timeoutPromise]);
-      if (user) {
-        loginWithOAuth('Google', user.email, user.name, user.avatar, user.id);
+      const result = await Promise.race([signInWithGoogle(), timeoutPromise]);
+      if (result && result.user) {
+        loginWithOAuth('Google', result.user.email, result.user.name, result.user.avatar, result.user.id);
+      } else if (result && result.isRedirecting) {
+        // App is redirecting to Google on mobile
+        return;
       } else {
-        setAuthErrorMessage((error || 'Google Sign-In failed.') + ' (Hint: On mobile browsers, try using the Email tab with your account email for instant sync)');
+        setAuthErrorMessage((result?.error || 'Google Sign-In failed.') + ' On mobile browsers, try using the Email tab.');
       }
     } catch (err) {
-      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, use the "Email" tab with your email address to log in & sync seamlessly.');
+      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, try using the "Email" tab with password or PIN lock.');
     } finally {
       setIsLoading(false);
     }
@@ -76,10 +90,10 @@ export const LoginScreen = () => {
       if (user) {
         loginWithOAuth('Apple', user.email, user.name, user.avatar, user.id);
       } else {
-        setAuthErrorMessage((error || 'Apple Sign-In failed.') + ' (Hint: On mobile browsers, try using the Email tab with your account email for instant sync)');
+        setAuthErrorMessage((error || 'Apple Sign-In failed.') + ' On mobile browsers, try using the Email tab.');
       }
     } catch (err) {
-      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, use the "Email" tab with your email address to log in & sync seamlessly.');
+      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, try using the "Email" tab.');
     } finally {
       setIsLoading(false);
     }
@@ -90,14 +104,26 @@ export const LoginScreen = () => {
     loginWithOAuth(modalProvider, `trader@${modalProvider.toLowerCase()}.com`, `${modalProvider} Demo Trader`);
   };
 
-  const handleEmailSubmit = (e) => {
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
     if (!email) return;
     setIsLoading(true);
-    setTimeout(() => {
-      loginWithEmail(email);
+    setAuthErrorMessage('');
+
+    if (isFirebaseConfigured() && password) {
+      const { user, error } = await signInWithEmailPassword(email, password);
+      if (user) {
+        loginWithOAuth(user.provider, user.email, user.name, user.avatar, user.id);
+      } else {
+        setAuthErrorMessage(error || 'Email Authentication failed.');
+      }
       setIsLoading(false);
-    }, 500);
+    } else {
+      setTimeout(() => {
+        loginWithEmail(email);
+        setIsLoading(false);
+      }, 500);
+    }
   };
 
   const handlePasscodeSubmit = (e) => {
@@ -219,31 +245,40 @@ export const LoginScreen = () => {
           </div>
         )}
 
-        {/* 2. EMAIL / PASSWORD LOGIN */}
+        {/* 2. EMAIL MAGIC SYNC LOGIN */}
         {authMode === 'email' && (
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Account Email Address *
+              </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
                   type="email"
-                  placeholder="trader@example.com"
+                  placeholder="e.g. your-name@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
+              <p className="text-[11px] text-emerald-400/90 mt-1.5 flex items-center space-x-1">
+                <Sparkles className="w-3 h-3 shrink-0 text-emerald-400" />
+                <span>No password required! Enter your Google/Apple account email to instantly sync your journal across devices.</span>
+              </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">Password</label>
+                <span className="text-[10px] text-slate-500 font-medium">(Optional for Google Email Sync)</span>
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="Optional password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
@@ -261,9 +296,9 @@ export const LoginScreen = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <span>{isLoading ? 'Signing in...' : 'Sign In with Email'}</span>
+              <span>{isLoading ? 'Syncing Account...' : 'Sign In & Sync Journal'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

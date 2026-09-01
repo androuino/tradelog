@@ -3,7 +3,11 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   OAuthProvider, 
-  signInWithPopup 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import {
   getFirestore,
@@ -45,6 +49,7 @@ if (isFirebaseConfigured()) {
 
 export { auth, db };
 
+// Secure Google Sign In (Popup with mobile Redirect fallback)
 export const signInWithGoogle = async () => {
   if (!auth || !googleProvider) {
     return { user: null, error: "Firebase configuration missing" };
@@ -62,6 +67,76 @@ export const signInWithGoogle = async () => {
       error: null
     };
   } catch (error) {
+    // Fallback to redirect if popup is blocked on mobile browsers
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return { user: null, error: null, isRedirecting: true };
+      } catch (redirectErr) {
+        return { user: null, error: redirectErr.message };
+      }
+    }
+    return { user: null, error: error.message };
+  }
+};
+
+// Check for redirect result on page reload (Mobile OAuth return)
+export const checkRedirectResult = async () => {
+  if (!auth) return null;
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      return {
+        id: result.user.uid,
+        name: result.user.displayName || 'Trader',
+        email: result.user.email,
+        avatar: result.user.photoURL,
+        provider: 'Google'
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn("Redirect result error:", err);
+    return null;
+  }
+};
+
+// Secure Email & Password Authentication
+export const signInWithEmailPassword = async (email, password) => {
+  if (!auth) {
+    return { user: null, error: "Firebase configuration missing" };
+  }
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    return {
+      user: {
+        id: result.user.uid,
+        name: result.user.displayName || email.split('@')[0],
+        email: result.user.email,
+        avatar: null,
+        provider: 'Email'
+      },
+      error: null
+    };
+  } catch (error) {
+    // If account doesn't exist yet, automatically create account with password
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      try {
+        const createResult = await createUserWithEmailAndPassword(auth, email, password);
+        return {
+          user: {
+            id: createResult.user.uid,
+            name: email.split('@')[0],
+            email: createResult.user.email,
+            avatar: null,
+            provider: 'Email'
+          },
+          error: null
+        };
+      } catch (createErr) {
+        return { user: null, error: createErr.message };
+      }
+    }
     return { user: null, error: error.message };
   }
 };
