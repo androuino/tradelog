@@ -113,10 +113,12 @@ export const JournalProvider = ({ children }) => {
   }, [user]);
 
   // Auth helper actions
-  const loginWithOAuth = (provider, email, name, avatar) => {
+  const loginWithOAuth = (provider, email, name, avatar, userId = null) => {
+    const cleanEmail = (email || `trader@${provider.toLowerCase()}.com`).toLowerCase().trim();
     const userData = {
+      id: userId || null,
       name: name || 'Trader Pro',
-      email: email || `trader@${provider.toLowerCase()}.com`,
+      email: cleanEmail,
       provider,
       avatar: avatar || (provider === 'Google' 
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
@@ -129,9 +131,11 @@ export const JournalProvider = ({ children }) => {
   };
 
   const loginWithEmail = (email) => {
+    const cleanEmail = (email || '').toLowerCase().trim();
     const userData = {
-      name: email.split('@')[0],
-      email,
+      id: null,
+      name: cleanEmail.split('@')[0] || 'Trader',
+      email: cleanEmail,
       provider: 'Email',
       avatar: null
     };

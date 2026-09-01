@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
+import { isFirebaseConfigured } from '../firebase';
+
 export const Navbar = () => {
   const { 
     activeTab, 
@@ -242,9 +244,18 @@ export const Navbar = () => {
                   <div className="px-3 py-2 border-b border-slate-800 mb-1">
                     <p className="text-xs font-bold text-white truncate">{user?.name || 'Trader Pro'}</p>
                     <p className="text-[10px] text-slate-400 truncate">{user?.email || 'Logged in'}</p>
-                    <span className="inline-block mt-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded uppercase">
-                      {user?.provider || 'Protected'}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded uppercase">
+                        {user?.provider || 'Protected'}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase border ${
+                        isFirebaseConfigured() 
+                          ? 'text-teal-400 bg-teal-500/10 border-teal-500/20' 
+                          : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                      }`}>
+                        {isFirebaseConfigured() ? '☁️ Cloud Active' : '💾 Local Mode'}
+                      </span>
+                    </div>
                   </div>
 
                   <button

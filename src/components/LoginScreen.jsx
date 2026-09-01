@@ -50,7 +50,7 @@ export const LoginScreen = () => {
     try {
       const { user, error } = await Promise.race([signInWithGoogle(), timeoutPromise]);
       if (user) {
-        loginWithOAuth('Google', user.email, user.name, user.avatar);
+        loginWithOAuth('Google', user.email, user.name, user.avatar, user.id);
       } else {
         setAuthErrorMessage(error || 'Google Authentication failed.');
       }
@@ -74,7 +74,7 @@ export const LoginScreen = () => {
     try {
       const { user, error } = await signInWithApple();
       if (user) {
-        loginWithOAuth('Apple', user.email, user.name, user.avatar);
+        loginWithOAuth('Apple', user.email, user.name, user.avatar, user.id);
       } else {
         setAuthErrorMessage(error || 'Apple Authentication failed.');
       }
