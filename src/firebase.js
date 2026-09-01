@@ -88,12 +88,13 @@ export const signInWithApple = async () => {
 };
 
 // Firestore Sync Helpers
-export const syncJournalToCloud = async (userId, entries) => {
+export const syncJournalToCloud = async (userId, entries, lessons) => {
   if (!db || !userId) return false;
   try {
     const userDocRef = doc(db, "journals", userId);
     await setDoc(userDocRef, {
-      entries: entries,
+      entries: entries || [],
+      lessons: lessons || [],
       updatedAt: new Date().toISOString()
     }, { merge: true });
     return true;
@@ -108,8 +109,12 @@ export const fetchJournalFromCloud = async (userId) => {
   try {
     const userDocRef = doc(db, "journals", userId);
     const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists() && docSnap.data().entries) {
-      return docSnap.data().entries;
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        entries: Array.isArray(data.entries) ? data.entries : null,
+        lessons: Array.isArray(data.lessons) ? data.lessons : null
+      };
     }
     return null;
   } catch (err) {

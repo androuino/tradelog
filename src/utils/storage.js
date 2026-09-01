@@ -1,6 +1,7 @@
 // Storage utility using localStorage with IndexedDB fallback capabilities
 
 const STORAGE_KEY = 'trader_journal_entries_v1';
+const STORAGE_LESSONS_KEY = 'trader_life_lessons_v1';
 
 export const loadEntriesFromStorage = () => {
   try {
@@ -19,6 +20,27 @@ export const saveEntriesToStorage = (entries) => {
     return true;
   } catch (err) {
     console.error('Error saving entries to localStorage:', err);
+    return false;
+  }
+};
+
+export const loadLessonsFromStorage = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_LESSONS_KEY);
+    if (!data) return null;
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error loading lessons from localStorage:', err);
+    return null;
+  }
+};
+
+export const saveLessonsToStorage = (lessons) => {
+  try {
+    localStorage.setItem(STORAGE_LESSONS_KEY, JSON.stringify(lessons));
+    return true;
+  } catch (err) {
+    console.error('Error saving lessons to localStorage:', err);
     return false;
   }
 };

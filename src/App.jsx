@@ -8,6 +8,7 @@ import { ImageLightboxModal } from './components/ImageLightboxModal';
 import { CalendarView } from './components/CalendarView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { MediaGalleryView } from './components/MediaGalleryView';
+import { LifeLessonsView } from './components/LifeLessonsView';
 import { LoginScreen } from './components/LoginScreen';
 import { formatCurrency } from './utils/formatters';
 import { 
@@ -22,7 +23,8 @@ import {
   CheckCircle2, 
   Calendar as CalendarIcon, 
   BarChart3, 
-  Image as ImageIcon 
+  Image as ImageIcon,
+  BookMarked
 } from 'lucide-react';
 
 const MainContent = () => {
@@ -65,6 +67,7 @@ const MainContent = () => {
         {activeTab === 'calendar' && <CalendarView />}
         {activeTab === 'analytics' && <AnalyticsView />}
         {activeTab === 'gallery' && <MediaGalleryView />}
+        {activeTab === 'lessons' && <LifeLessonsView />}
 
         {/* FEED TAB */}
         {activeTab === 'feed' && (
@@ -282,6 +285,16 @@ const MainContent = () => {
         >
           <ImageIcon className="w-5 h-5" />
           <span>Media</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('lessons')}
+          className={`flex flex-col items-center justify-center space-y-1 p-2 rounded-xl text-[11px] font-medium transition-colors ${
+            activeTab === 'lessons' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <BookMarked className="w-5 h-5" />
+          <span>Lessons</span>
         </button>
       </nav>
 

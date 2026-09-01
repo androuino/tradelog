@@ -17,7 +17,8 @@ import {
   User,
   ShieldCheck,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  BookMarked
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -153,6 +154,18 @@ export const Navbar = () => {
             >
               <ImageIcon className="w-4 h-4" />
               <span>Media</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('lessons')}
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === 'lessons'
+                  ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <BookMarked className="w-4 h-4" />
+              <span>Life Lessons</span>
             </button>
           </nav>
 

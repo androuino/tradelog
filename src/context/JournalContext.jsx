@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loadEntriesFromStorage, saveEntriesToStorage } from '../utils/storage';
-import { sampleEntries } from '../utils/sampleData';
+import { loadEntriesFromStorage, saveEntriesToStorage, loadLessonsFromStorage, saveLessonsToStorage } from '../utils/storage';
+import { sampleEntries, sampleLessons } from '../utils/sampleData';
 import { syncJournalToCloud, fetchJournalFromCloud } from '../firebase';
 
 const JournalContext = createContext();
@@ -24,6 +24,14 @@ export const JournalProvider = ({ children }) => {
     return [];
   });
 
+  const [lessons, setLessons] = useState(() => {
+    const saved = loadLessonsFromStorage();
+    if (saved && Array.isArray(saved)) {
+      return saved;
+    }
+    return sampleLessons;
+  });
+
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'new' | 'calendar' | 'analytics' | 'gallery'
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -41,27 +49,40 @@ export const JournalProvider = ({ children }) => {
     saveEntriesToStorage(entries);
     if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
-      syncJournalToCloud(syncId, entries);
+      syncJournalToCloud(syncId, entries, lessons);
     }
-  }, [entries, user]);
+  }, [entries, lessons, user]);
 
-  // Load Cloud Data on login & merge safely with local entries
+  useEffect(() => {
+    saveLessonsToStorage(lessons);
+  }, [lessons]);
+
+  // Load Cloud Data on login & merge safely with local entries & lessons
   useEffect(() => {
     if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
-      fetchJournalFromCloud(syncId).then(cloudEntries => {
-        if (cloudEntries && Array.isArray(cloudEntries)) {
-          setEntries(prev => {
-            const map = new Map();
-            // Preserve local entries first so newly created offline entries aren't lost
-            (prev || []).forEach(item => map.set(item.id, item));
-            // Add cloud entries
-            cloudEntries.forEach(item => map.set(item.id, item));
-            const merged = Array.from(map.values());
-            saveEntriesToStorage(merged);
-            syncJournalToCloud(syncId, merged);
-            return merged;
-          });
+      fetchJournalFromCloud(syncId).then(cloudData => {
+        if (cloudData) {
+          if (cloudData.entries && Array.isArray(cloudData.entries)) {
+            setEntries(prev => {
+              const map = new Map();
+              (prev || []).forEach(item => map.set(item.id, item));
+              cloudData.entries.forEach(item => map.set(item.id, item));
+              const merged = Array.from(map.values());
+              saveEntriesToStorage(merged);
+              return merged;
+            });
+          }
+          if (cloudData.lessons && Array.isArray(cloudData.lessons)) {
+            setLessons(prev => {
+              const map = new Map();
+              (prev || []).forEach(item => map.set(item.id, item));
+              cloudData.lessons.forEach(item => map.set(item.id, item));
+              const mergedLessons = Array.from(map.values());
+              saveLessonsToStorage(mergedLessons);
+              return mergedLessons;
+            });
+          }
         }
       });
     }
@@ -226,14 +247,39 @@ export const JournalProvider = ({ children }) => {
     }
   };
 
+  const addLesson = (newLesson) => {
+    const lesson = {
+      ...newLesson,
+      id: `lesson-${Date.now()}`,
+      date: newLesson.date || new Date().toISOString().split('T')[0]
+    };
+    setLessons(prev => [lesson, ...prev]);
+  };
+
+  const updateLesson = (id, updatedData) => {
+    setLessons(prev => prev.map(item => item.id === id ? { ...item, ...updatedData } : item));
+  };
+
+  const deleteLesson = (id) => {
+    setLessons(prev => prev.filter(item => item.id !== id));
+  };
+
+  const toggleFavoriteLesson = (id) => {
+    setLessons(prev => prev.map(item => item.id === id ? { ...item, isFavorite: !item.isFavorite } : item));
+  };
+
   const resetToSampleData = () => {
     setEntries(sampleEntries);
     saveEntriesToStorage(sampleEntries);
+    setLessons(sampleLessons);
+    saveLessonsToStorage(sampleLessons);
   };
 
   const clearAllEntries = () => {
     setEntries([]);
     saveEntriesToStorage([]);
+    setLessons([]);
+    saveLessonsToStorage([]);
     setSelectedEntry(null);
   };
 
@@ -250,7 +296,12 @@ export const JournalProvider = ({ children }) => {
   };
 
   const exportJournalJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(entries, null, 2));
+    const exportData = {
+      version: 1,
+      entries,
+      lessons
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
     downloadAnchor.setAttribute("download", `trading_journal_backup_${new Date().toISOString().split('T')[0]}.json`);
@@ -269,6 +320,18 @@ export const JournalProvider = ({ children }) => {
           if (Array.isArray(parsed)) {
             setEntries(parsed);
             alert(`Successfully imported ${parsed.length} journal entries!`);
+          } else if (parsed && typeof parsed === 'object') {
+            let countEntries = 0;
+            let countLessons = 0;
+            if (Array.isArray(parsed.entries)) {
+              setEntries(parsed.entries);
+              countEntries = parsed.entries.length;
+            }
+            if (Array.isArray(parsed.lessons)) {
+              setLessons(parsed.lessons);
+              countLessons = parsed.lessons.length;
+            }
+            alert(`Successfully imported ${countEntries} journal entries & ${countLessons} life lessons!`);
           } else {
             alert('Invalid backup file format.');
           }
@@ -339,6 +402,13 @@ export const JournalProvider = ({ children }) => {
       clearAllEntries,
       exportJournalJSON,
       importJournalJSON,
+      
+      // Life Lessons
+      lessons,
+      addLesson,
+      updateLesson,
+      deleteLesson,
+      toggleFavoriteLesson,
       
       // Filters
       searchQuery,

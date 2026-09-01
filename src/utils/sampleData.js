@@ -242,3 +242,50 @@ export const sampleEntries = [
     ]
   }
 ];
+
+export const sampleLessons = [
+  {
+    id: 'lesson-1',
+    title: 'Thinking in Probabilities & Accepting Risk',
+    bookTitle: 'Trading in the Zone',
+    author: 'Mark Douglas',
+    category: 'Mindset',
+    quote: 'When you truly accept the risk, you will be at peace with any outcome.',
+    takeaway: 'Every trade outcome is independent and probabilistic. My job is not to guess or force a win on a single trade, but to execute my edge flawlessly over a series of 100 trades.',
+    date: '2026-08-20',
+    isFavorite: true
+  },
+  {
+    id: 'lesson-2',
+    title: 'Systems Over Goals (1% Marginal Gains)',
+    bookTitle: 'Atomic Habits',
+    author: 'James Clear',
+    category: 'Habits',
+    quote: 'You do not rise to the level of your goals. You fall to the level of your systems.',
+    takeaway: 'Instead of obsessing over daily P/L goals, focus on buildable systems: pre-market routine, rules checklist, and post-market journaling. Great habits compound into consistent performance.',
+    date: '2026-08-22',
+    isFavorite: true
+  },
+  {
+    id: 'lesson-3',
+    title: 'Room for Error & Margin of Safety',
+    bookTitle: 'The Psychology of Money',
+    author: 'Morgan Housel',
+    category: 'Risk & Money',
+    quote: 'Plan on your plan not going according to plan.',
+    takeaway: 'Position size conservatively so that a string of 5 consecutive losses has zero impact on operational or mental capital. Margin of safety gives you longevity in financial markets.',
+    date: '2026-08-25',
+    isFavorite: false
+  },
+  {
+    id: 'lesson-4',
+    title: 'Dichotomy of Control in Execution',
+    bookTitle: 'The Daily Stoic',
+    author: 'Ryan Holiday / Epictetus',
+    category: 'Psychology',
+    quote: 'You have power over your mind - not outside events. Realize this, and you will find strength.',
+    takeaway: 'I cannot control price movement or market noise after clicking buy/sell. I can only control my risk allocation, entry criteria, stop discipline, and emotional composure.',
+    date: '2026-08-28',
+    isFavorite: true
+  }
+];
