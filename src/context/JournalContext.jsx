@@ -45,14 +45,23 @@ export const JournalProvider = ({ children }) => {
     }
   }, [entries, user]);
 
-  // Load Cloud Data on login
+  // Load Cloud Data on login & merge safely with local entries
   useEffect(() => {
     if (user && (user.id || user.email)) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
       fetchJournalFromCloud(syncId).then(cloudEntries => {
         if (cloudEntries && Array.isArray(cloudEntries)) {
-          setEntries(cloudEntries);
-          saveEntriesToStorage(cloudEntries);
+          setEntries(prev => {
+            const map = new Map();
+            // Preserve local entries first so newly created offline entries aren't lost
+            (prev || []).forEach(item => map.set(item.id, item));
+            // Add cloud entries
+            cloudEntries.forEach(item => map.set(item.id, item));
+            const merged = Array.from(map.values());
+            saveEntriesToStorage(merged);
+            syncJournalToCloud(syncId, merged);
+            return merged;
+          });
         }
       });
     }
