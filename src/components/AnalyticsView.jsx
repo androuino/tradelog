@@ -79,7 +79,7 @@ export const AnalyticsView = () => {
 
   return (
     <div className="max-w-5xl mx-auto pb-24 lg:pb-12 pt-4 px-4 sm:px-6 space-y-6">
-      
+
       {/* Top Header Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl">
         <div className="flex items-center space-x-3 mb-6">
@@ -135,14 +135,14 @@ export const AnalyticsView = () => {
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto">
           <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-52 stroke-emerald-400 fill-none">
             {/* Horizontal Zero Line */}
-            <line 
-              x1="0" 
-              y1={svgHeight - 30 - ((0 - minEquity) / range) * (svgHeight - 60)} 
-              x2={svgWidth} 
-              y2={svgHeight - 30 - ((0 - minEquity) / range) * (svgHeight - 60)} 
-              stroke="#334155" 
-              strokeDasharray="4" 
-              strokeWidth="1" 
+            <line
+              x1="0"
+              y1={svgHeight - 30 - ((0 - minEquity) / range) * (svgHeight - 60)}
+              x2={svgWidth}
+              y2={svgHeight - 30 - ((0 - minEquity) / range) * (svgHeight - 60)}
+              stroke="#334155"
+              strokeDasharray="4"
+              strokeWidth="1"
             />
 
             {/* Gradient Fill under path */}
@@ -155,15 +155,15 @@ export const AnalyticsView = () => {
 
             {points && (
               <>
-                <polygon 
-                  points={`20,${svgHeight - 20} ${points} ${svgWidth - 20},${svgHeight - 20}`} 
-                  fill="url(#equityGrad)" 
+                <polygon
+                  points={`20,${svgHeight - 20} ${points} ${svgWidth - 20},${svgHeight - 20}`}
+                  fill="url(#equityGrad)"
                   stroke="none"
                 />
-                <polyline 
-                  points={points} 
-                  stroke="#10b981" 
-                  strokeWidth="3" 
+                <polyline
+                  points={points}
+                  stroke="#10b981"
+                  strokeWidth="3"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -175,12 +175,12 @@ export const AnalyticsView = () => {
               const x = (i / Math.max(1, equityCurve.length - 1)) * (svgWidth - 40) + 20;
               const y = svgHeight - 30 - ((d.cumulativePnL - minEquity) / range) * (svgHeight - 60);
               return (
-                <circle 
-                  key={i} 
-                  cx={x} 
-                  cy={y} 
-                  r="4" 
-                  className="fill-emerald-400 stroke-slate-950 stroke-2 hover:r-6 cursor-pointer transition-all" 
+                <circle
+                  key={i}
+                  cx={x}
+                  cy={y}
+                  r="4"
+                  className="fill-emerald-400 stroke-slate-950 stroke-2 hover:r-6 cursor-pointer transition-all"
                 >
                   <title>{`${d.date} (${d.asset}): ${formatCurrency(d.cumulativePnL)}`}</title>
                 </circle>
@@ -192,7 +192,7 @@ export const AnalyticsView = () => {
 
       {/* Two Column Grid: Emotion Matrix & Plan Adherence Impact */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
+
         {/* Emotion vs P/L Matrix Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl">
           <div className="flex items-center space-x-2 border-b border-slate-800 pb-3 mb-4">

@@ -46,6 +46,12 @@ export const JournalProvider = ({ children }) => {
 
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
+  const getSyncId = (u) => {
+    if (!u) return null;
+    const key = u.email || u.id || 'default_user';
+    return key.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_');
+  };
+
   // Auto save to localStorage & Cloud Sync (Firebase Firestore)
   useEffect(() => {
     saveEntriesToStorage(entries);
@@ -53,18 +59,37 @@ export const JournalProvider = ({ children }) => {
 
     // CRITICAL FIX: Only push local state TO cloud after initial cloud fetch completes for the user.
     // This prevents empty PWA / newly installed app local state from wiping existing Cloud data.
-    if (user && (user.id || user.email) && isCloudLoaded) {
-      const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
-      syncJournalToCloud(syncId, entries, lessons);
+    if (user && isCloudLoaded) {
+      const syncId = getSyncId(user);
+      if (syncId) {
+        syncJournalToCloud(syncId, entries, lessons);
+      }
     }
   }, [entries, lessons, user, isCloudLoaded]);
 
   // Load Cloud Data on login / app launch & merge safely with local entries & lessons
   const refreshCloudData = async () => {
-    if (!user || (!user.id && !user.email)) return;
-    const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
+    if (!user) return;
+    const primarySyncId = getSyncId(user);
+    const legacySyncId = user.id && user.id !== primarySyncId ? user.id : null;
+
+    if (!primarySyncId) return;
+
     try {
-      const cloudData = await fetchJournalFromCloud(syncId);
+      // Fetch primary email-based cloud doc
+      let cloudData = await fetchJournalFromCloud(primarySyncId);
+
+      // If legacy ID exists (e.g. from previous Google Auth UID sync), fetch legacy data too & merge
+      if (legacySyncId) {
+        const legacyData = await fetchJournalFromCloud(legacySyncId);
+        if (legacyData) {
+          cloudData = {
+            entries: [...(cloudData?.entries || []), ...(legacyData.entries || [])],
+            lessons: [...(cloudData?.lessons || []), ...(legacyData.lessons || [])]
+          };
+        }
+      }
+
       if (cloudData) {
         if (cloudData.entries && Array.isArray(cloudData.entries) && cloudData.entries.length > 0) {
           setEntries(prev => {
