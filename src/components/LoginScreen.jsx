@@ -52,10 +52,10 @@ export const LoginScreen = () => {
       if (user) {
         loginWithOAuth('Google', user.email, user.name, user.avatar, user.id);
       } else {
-        setAuthErrorMessage(error || 'Google Authentication failed.');
+        setAuthErrorMessage((error || 'Google Sign-In failed.') + ' (Hint: On mobile browsers, try using the Email tab with your account email for instant sync)');
       }
     } catch (err) {
-      setAuthErrorMessage(err.message || 'Google Auth Popup blocked or closed.');
+      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, use the "Email" tab with your email address to log in & sync seamlessly.');
     } finally {
       setIsLoading(false);
     }
@@ -76,10 +76,10 @@ export const LoginScreen = () => {
       if (user) {
         loginWithOAuth('Apple', user.email, user.name, user.avatar, user.id);
       } else {
-        setAuthErrorMessage(error || 'Apple Authentication failed.');
+        setAuthErrorMessage((error || 'Apple Sign-In failed.') + ' (Hint: On mobile browsers, try using the Email tab with your account email for instant sync)');
       }
     } catch (err) {
-      setAuthErrorMessage(err.message || 'Apple Auth Popup blocked or closed.');
+      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, use the "Email" tab with your email address to log in & sync seamlessly.');
     } finally {
       setIsLoading(false);
     }
