@@ -245,7 +245,7 @@ export const LoginScreen = () => {
           </div>
         )}
 
-        {/* 2. EMAIL MAGIC SYNC LOGIN */}
+        {/* 2. EMAIL & PASSWORD SECURE LOGIN */}
         {authMode === 'email' && (
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div>
@@ -256,32 +256,28 @@ export const LoginScreen = () => {
                 <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
                   type="email"
-                  placeholder="e.g. your-name@gmail.com"
+                  placeholder="your-email@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
-              <p className="text-[11px] text-emerald-400/90 mt-1.5 flex items-center space-x-1">
-                <Sparkles className="w-3 h-3 shrink-0 text-emerald-400" />
-                <span>No password required! Enter your Google/Apple account email to instantly sync your journal across devices.</span>
-              </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-300">Password</label>
-                <span className="text-[10px] text-slate-500 font-medium">(Optional for Google Email Sync)</span>
+                <label className="block text-xs font-semibold text-slate-300">Account Password *</label>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Optional password"
+                  placeholder="Enter account password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                  required
                 />
                 <button
                   type="button"
@@ -291,6 +287,10 @@ export const LoginScreen = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 flex items-center space-x-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Password protection ensures your trade logs & mindset data remain private & secure.</span>
+              </p>
             </div>
 
             <button
@@ -298,7 +298,7 @@ export const LoginScreen = () => {
               disabled={isLoading}
               className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <span>{isLoading ? 'Syncing Account...' : 'Sign In & Sync Journal'}</span>
+              <span>{isLoading ? 'Authenticating...' : 'Sign In & Sync Journal'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
