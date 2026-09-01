@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useJournal } from '../context/JournalContext';
-import { signInWithGoogle, signInWithApple, isFirebaseConfigured } from '../firebase';
+import { signInWithGoogle, signInWithApple, isFirebaseConfigured, checkRedirectResult, signInWithEmailPassword } from '../firebase';
 import { 
   ShieldCheck, 
   Lock, 
