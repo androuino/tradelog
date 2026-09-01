@@ -44,47 +44,71 @@ export const JournalProvider = ({ children }) => {
   const [filterPlan, setFilterPlan] = useState('all'); // 'all' | 'yes' | 'partial' | 'no'
   const [filterMood, setFilterMood] = useState('all');
 
+  const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
   // Auto save to localStorage & Cloud Sync (Firebase Firestore)
   useEffect(() => {
     saveEntriesToStorage(entries);
-    if (user && (user.id || user.email)) {
+    saveLessonsToStorage(lessons);
+
+    // CRITICAL FIX: Only push local state TO cloud after initial cloud fetch completes for the user.
+    // This prevents empty PWA / newly installed app local state from wiping existing Cloud data.
+    if (user && (user.id || user.email) && isCloudLoaded) {
       const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
       syncJournalToCloud(syncId, entries, lessons);
     }
-  }, [entries, lessons, user]);
+  }, [entries, lessons, user, isCloudLoaded]);
 
-  useEffect(() => {
-    saveLessonsToStorage(lessons);
-  }, [lessons]);
+  // Load Cloud Data on login / app launch & merge safely with local entries & lessons
+  const refreshCloudData = async () => {
+    if (!user || (!user.id && !user.email)) return;
+    const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
+    try {
+      const cloudData = await fetchJournalFromCloud(syncId);
+      if (cloudData) {
+        if (cloudData.entries && Array.isArray(cloudData.entries) && cloudData.entries.length > 0) {
+          setEntries(prev => {
+            const map = new Map();
+            // Cloud entries take precedence for initial sync
+            cloudData.entries.forEach(item => map.set(item.id, item));
+            (prev || []).forEach(item => {
+              if (!map.has(item.id)) {
+                map.set(item.id, item);
+              }
+            });
+            const merged = Array.from(map.values());
+            saveEntriesToStorage(merged);
+            return merged;
+          });
+        }
+        if (cloudData.lessons && Array.isArray(cloudData.lessons) && cloudData.lessons.length > 0) {
+          setLessons(prev => {
+            const map = new Map();
+            cloudData.lessons.forEach(item => map.set(item.id, item));
+            (prev || []).forEach(item => {
+              if (!map.has(item.id)) {
+                map.set(item.id, item);
+              }
+            });
+            const mergedLessons = Array.from(map.values());
+            saveLessonsToStorage(mergedLessons);
+            return mergedLessons;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Error refreshing cloud data:", err);
+    } finally {
+      setIsCloudLoaded(true);
+    }
+  };
 
-  // Load Cloud Data on login & merge safely with local entries & lessons
   useEffect(() => {
     if (user && (user.id || user.email)) {
-      const syncId = user.id || user.email.replace(/[^a-zA-Z0-9]/g, '_');
-      fetchJournalFromCloud(syncId).then(cloudData => {
-        if (cloudData) {
-          if (cloudData.entries && Array.isArray(cloudData.entries)) {
-            setEntries(prev => {
-              const map = new Map();
-              (prev || []).forEach(item => map.set(item.id, item));
-              cloudData.entries.forEach(item => map.set(item.id, item));
-              const merged = Array.from(map.values());
-              saveEntriesToStorage(merged);
-              return merged;
-            });
-          }
-          if (cloudData.lessons && Array.isArray(cloudData.lessons)) {
-            setLessons(prev => {
-              const map = new Map();
-              (prev || []).forEach(item => map.set(item.id, item));
-              cloudData.lessons.forEach(item => map.set(item.id, item));
-              const mergedLessons = Array.from(map.values());
-              saveLessonsToStorage(mergedLessons);
-              return mergedLessons;
-            });
-          }
-        }
-      });
+      setIsCloudLoaded(false);
+      refreshCloudData();
+    } else {
+      setIsCloudLoaded(true);
     }
   }, [user]);
 
@@ -380,6 +404,8 @@ export const JournalProvider = ({ children }) => {
       setupPasscode,
       continueAsGuest,
       logout,
+      refreshCloudData,
+      isCloudLoaded,
 
       // Journal data & actions
       entries,

@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Trash2,
   AlertTriangle,
-  BookMarked
+  BookMarked,
+  RefreshCw
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -35,7 +36,8 @@ export const Navbar = () => {
     resetToSampleData,
     clearAllEntries,
     user,
-    logout
+    logout,
+    refreshCloudData
   } = useJournal();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -244,6 +246,17 @@ export const Navbar = () => {
                       {user?.provider || 'Protected'}
                     </span>
                   </div>
+
+                  <button
+                    onClick={() => {
+                      refreshCloudData();
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors mb-1 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Sync / Pull Cloud Data</span>
+                  </button>
 
                   <button
                     onClick={() => {
