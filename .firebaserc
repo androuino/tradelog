@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "journal": "tradelog-5e83f"
+  },
+  "targets": {
+    "tradelog-5e83f": {
+      "hosting": {
+        "main": [
+          "pipslog"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
