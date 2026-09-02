@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  OAuthProvider, 
+import {
+  getAuth,
+  GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -162,17 +162,100 @@ export const signInWithApple = async () => {
   }
 };
 
+// Image compression helper to keep Firestore document size well under 1MB limit
+export const compressBase64Image = (dataUrl, maxWidth = 800, quality = 0.6) => {
+  return new Promise((resolve) => {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+      return resolve(dataUrl);
+    }
+    if (dataUrl.startsWith('data:image/svg+xml')) {
+      return resolve(dataUrl);
+    }
+    try {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        let width = img.width || 800;
+        let height = img.height || 600;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    } catch (e) {
+      resolve(dataUrl);
+    }
+  });
+};
+
+const compressEntriesForCloud = async (entries) => {
+  if (!Array.isArray(entries)) return [];
+  return Promise.all(
+    entries.map(async (entry) => {
+      const e = { ...entry };
+      if (Array.isArray(e.images)) {
+        e.images = await Promise.all(
+          e.images.map(async (img) => ({
+            ...img,
+            url: await compressBase64Image(img.url)
+          }))
+        );
+      }
+      if (Array.isArray(e.trades)) {
+        e.trades = await Promise.all(
+          e.trades.map(async (t) => ({
+            ...t,
+            imageUrl: t.imageUrl ? await compressBase64Image(t.imageUrl) : t.imageUrl
+          }))
+        );
+      }
+      return e;
+    })
+  );
+};
+
 // Firestore Sync Helpers
 export const syncJournalToCloud = async (userId, entries, lessons) => {
   if (!db || !userId) return false;
   try {
-    const userDocRef = doc(db, "journals", userId);
-    await setDoc(userDocRef, {
-      entries: entries || [],
-      lessons: lessons || [],
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    return true;
+    const compressedEntries = await compressEntriesForCloud(entries || []);
+    const rawEntries = JSON.parse(JSON.stringify(compressedEntries));
+    const rawLessons = JSON.parse(JSON.stringify(lessons || []));
+
+    // Target current auth UID and email to strictly match Firestore Security Rules
+    const targetIds = Array.from(new Set([
+      auth?.currentUser?.uid,
+      auth?.currentUser?.email
+    ])).filter(Boolean);
+
+    if (targetIds.length === 0) {
+      targetIds.push(userId);
+    }
+
+    let success = false;
+    for (const targetId of targetIds) {
+      try {
+        const userDocRef = doc(db, "journals", targetId);
+        await setDoc(userDocRef, {
+          entriesJson: JSON.stringify(rawEntries),
+          lessonsJson: JSON.stringify(rawLessons),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        success = true;
+      } catch (e) {
+        console.warn(`Firestore sync note for target ${targetId}:`, e);
+      }
+    }
+    return success;
   } catch (err) {
     console.warn("Cloud Firestore Sync Warning:", err);
     return false;
@@ -181,19 +264,54 @@ export const syncJournalToCloud = async (userId, entries, lessons) => {
 
 export const fetchJournalFromCloud = async (userId) => {
   if (!db || !userId) return null;
-  try {
-    const userDocRef = doc(db, "journals", userId);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        entries: Array.isArray(data.entries) ? data.entries : null,
-        lessons: Array.isArray(data.lessons) ? data.lessons : null
-      };
-    }
-    return null;
-  } catch (err) {
-    console.warn("Cloud Firestore Fetch Warning:", err);
-    return null;
+  const targetIds = Array.from(new Set([
+    auth?.currentUser?.uid,
+    auth?.currentUser?.email
+  ])).filter(Boolean);
+
+  if (targetIds.length === 0) {
+    targetIds.push(userId);
   }
+
+  for (const targetId of targetIds) {
+    try {
+      const userDocRef = doc(db, "journals", targetId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        let fetchedEntries = null;
+        let fetchedLessons = null;
+
+        if (data.entriesJson) {
+          try {
+            fetchedEntries = JSON.parse(data.entriesJson);
+          } catch (e) {
+            console.warn("Error parsing entriesJson:", e);
+          }
+        }
+        if (!fetchedEntries && Array.isArray(data.entries)) {
+          fetchedEntries = data.entries;
+        }
+
+        if (data.lessonsJson) {
+          try {
+            fetchedLessons = JSON.parse(data.lessonsJson);
+          } catch (e) {
+            console.warn("Error parsing lessonsJson:", e);
+          }
+        }
+        if (!fetchedLessons && Array.isArray(data.lessons)) {
+          fetchedLessons = data.lessons;
+        }
+
+        return {
+          entries: fetchedEntries || [],
+          lessons: fetchedLessons || []
+        };
+      }
+    } catch (err) {
+      console.warn(`Cloud Firestore Fetch Note for target ${targetId}:`, err);
+    }
+  }
+  return null;
 };

@@ -69,11 +69,11 @@ export const JournalProvider = ({ children }) => {
 
   // Load Cloud Data on login / app launch & merge safely with local entries & lessons
   const refreshCloudData = async () => {
-    if (!user) return;
+    if (!user) return { count: 0, userEmail: null, message: "User not logged in" };
     const primarySyncId = getSyncId(user);
     const legacySyncId = user.id && user.id !== primarySyncId ? user.id : null;
 
-    if (!primarySyncId) return;
+    if (!primarySyncId) return { count: 0, userEmail: user?.email, message: "Invalid sync ID" };
 
     try {
       // Fetch primary email-based cloud doc
@@ -90,8 +90,12 @@ export const JournalProvider = ({ children }) => {
         }
       }
 
+      let entriesCount = 0;
+      let lessonsCount = 0;
+
       if (cloudData) {
         if (cloudData.entries && Array.isArray(cloudData.entries) && cloudData.entries.length > 0) {
+          entriesCount = cloudData.entries.length;
           setEntries(prev => {
             const map = new Map();
             // Cloud entries take precedence for initial sync
@@ -107,6 +111,7 @@ export const JournalProvider = ({ children }) => {
           });
         }
         if (cloudData.lessons && Array.isArray(cloudData.lessons) && cloudData.lessons.length > 0) {
+          lessonsCount = cloudData.lessons.length;
           setLessons(prev => {
             const map = new Map();
             cloudData.lessons.forEach(item => map.set(item.id, item));
@@ -121,11 +126,29 @@ export const JournalProvider = ({ children }) => {
           });
         }
       }
+      return { 
+        count: entriesCount, 
+        lessonsCount, 
+        userEmail: user.email,
+        message: `Synced ${entriesCount} trade logs & ${lessonsCount} lessons for ${user.email}`
+      };
     } catch (err) {
       console.warn("Error refreshing cloud data:", err);
+      return { count: 0, userEmail: user?.email, message: err.message };
     } finally {
       setIsCloudLoaded(true);
     }
+  };
+
+  const forcePushToCloud = async () => {
+    if (!user) return { success: false, message: "Please log in first" };
+    const syncId = getSyncId(user);
+    if (!syncId) return { success: false, message: "No sync ID found" };
+    const ok = await syncJournalToCloud(syncId, entries, lessons);
+    return { 
+      success: ok, 
+      message: ok ? `Pushed ${entries.length} entries & ${lessons.length} lessons to cloud for ${user.email}!` : "Cloud upload failed." 
+    };
   };
 
   useEffect(() => {
@@ -457,6 +480,7 @@ export const JournalProvider = ({ children }) => {
       clearAllEntries,
       exportJournalJSON,
       importJournalJSON,
+      forcePushToCloud,
       
       // Life Lessons
       lessons,

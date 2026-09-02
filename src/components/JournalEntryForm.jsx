@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useJournal } from '../context/JournalContext';
 import { fileToDataUrl } from '../utils/storage';
+import { compressBase64Image } from '../firebase';
 import { 
   DollarSign, 
   Percent, 
@@ -202,7 +203,8 @@ export const JournalEntryForm = () => {
     try {
       const uploadedImages = [];
       for (const file of files) {
-        const dataUrl = await fileToDataUrl(file);
+        const rawUrl = await fileToDataUrl(file);
+        const dataUrl = await compressBase64Image(rawUrl);
         uploadedImages.push({
           id: 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
           url: dataUrl,
@@ -225,7 +227,7 @@ export const JournalEntryForm = () => {
     e.preventDefault();
 
     const formData = {
-      id: editingEntry ? editingEntry.id : undefined,
+      ...(editingEntry?.id ? { id: editingEntry.id } : {}),
       date,
       session,
       trades,
