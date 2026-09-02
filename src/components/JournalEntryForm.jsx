@@ -171,6 +171,26 @@ export const JournalEntryForm = () => {
     }));
   };
 
+  const [pnlError, setPnlError] = useState({});
+
+  const handlePnlInputChange = (tradeId, rawVal) => {
+    // Regex allows digits, single minus/plus sign, and single decimal point
+    // e.g. "", "-", "-150", "350", "0.5", "-0.5"
+    const validNumberRegex = /^[-+]?\d*\.?\d*$/;
+
+    if (!validNumberRegex.test(rawVal)) {
+      setPnlError(prev => ({
+        ...prev,
+        [tradeId]: '⚠️ Digits and minus sign (-) only'
+      }));
+      alert("Invalid input! P/L field accepts only numbers, decimal points, and minus sign '-' for losses (e.g. 350 or -120).");
+      return;
+    }
+
+    setPnlError(prev => ({ ...prev, [tradeId]: null }));
+    handleUpdateTrade(tradeId, 'pnl', rawVal);
+  };
+
   const handleTradeImageUpload = async (tradeId, file) => {
     try {
       const dataUrl = await fileToDataUrl(file);
@@ -226,11 +246,17 @@ export const JournalEntryForm = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const cleanedTrades = trades.map(t => ({
+      ...t,
+      pnl: parseFloat(t.pnl) || 0,
+      pnlPercentage: parseFloat(t.pnlPercentage) || 0
+    }));
+
     const formData = {
       ...(editingEntry?.id ? { id: editingEntry.id } : {}),
       date,
       session,
-      trades,
+      trades: cleanedTrades,
       pnl: totalDayPnl,
       pnlPercentage: totalDayPnlPct,
       tradesCount: trades.length,
@@ -475,20 +501,25 @@ export const JournalEntryForm = () => {
                   <div>
                     <label className="block text-[11px] font-medium text-slate-400 mb-1">P/L Amount ($)</label>
                     <input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="e.g. 350 or -120"
-                      value={trade.pnl !== undefined ? trade.pnl : ''}
-                      onChange={(e) => handleUpdateTrade(trade.id, 'pnl', parseFloat(e.target.value) || 0)}
+                      value={trade.pnl !== undefined && trade.pnl !== null ? trade.pnl : ''}
+                      onChange={(e) => handlePnlInputChange(trade.id, e.target.value)}
                       className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-xs font-extrabold focus:outline-none ${
-                        (trade.pnl || 0) > 0 
+                        (parseFloat(trade.pnl) || 0) > 0 
                           ? 'border-emerald-500/50 text-emerald-400' 
-                          : (trade.pnl || 0) < 0 
+                          : (parseFloat(trade.pnl) || 0) < 0 
                           ? 'border-rose-500/50 text-rose-400' 
                           : 'border-slate-800 text-white'
                       }`}
                       required
                     />
+                    {pnlError[trade.id] && (
+                      <p className="text-[10px] text-rose-400 mt-1 font-semibold">
+                        {pnlError[trade.id]}
+                      </p>
+                    )}
                   </div>
 
                   {/* Strategy / Setup Tag */}
