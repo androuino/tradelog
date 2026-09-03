@@ -141,6 +141,28 @@ export const signInWithEmailPassword = async (email, password) => {
   }
 };
 
+export const signUpWithEmailPassword = async (email, password, name = '') => {
+  if (!auth) {
+    return { user: null, error: "Firebase configuration missing" };
+  }
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    return {
+      user: {
+        id: result.user.uid,
+        name: name || email.split('@')[0],
+        email: result.user.email,
+        avatar: null,
+        provider: 'Email'
+      },
+      error: null
+    };
+  } catch (error) {
+    return { user: null, error: error.message };
+  }
+};
+
+
 export const signInWithApple = async () => {
   if (!auth || !appleProvider) {
     return { user: null, error: "Firebase configuration missing" };
