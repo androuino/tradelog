@@ -19,6 +19,7 @@ import {
   Trash2,
   AlertTriangle,
   BookMarked,
+  Calculator,
   RefreshCw,
   UploadCloud
 } from 'lucide-react';
@@ -178,6 +179,18 @@ export const Navbar = () => {
             >
               <BookMarked className="w-4 h-4" />
               <span>Life Lessons</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('calculator')}
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === 'calculator'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Calculator className="w-4 h-4" />
+              <span>Lot Calc</span>
             </button>
           </nav>
 

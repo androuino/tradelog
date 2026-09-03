@@ -157,7 +157,8 @@ export const JournalDetailModal = () => {
                     </div>
 
                     {/* Trade details */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-400 pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-400 pt-1">
+                      {tr.lotSize && <div>Lot Size: <strong className="text-emerald-400 font-bold">{tr.lotSize} Lots</strong></div>}
                       {tr.rrRatio && <div>R:R Ratio: <strong className="text-slate-200">{tr.rrRatio}</strong></div>}
                       {tr.entryPrice && <div>Entry: <strong className="text-slate-200">{tr.entryPrice}</strong></div>}
                       {tr.exitPrice && <div>Exit: <strong className="text-slate-200">{tr.exitPrice}</strong></div>}

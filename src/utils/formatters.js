@@ -72,3 +72,62 @@ export const getPlanAdherenceConfig = (status) => {
       return { label: 'Not Specified', badgeClass: 'bg-slate-500/15 text-slate-400 border-slate-500/30', icon: 'HelpCircle' };
   }
 };
+
+/**
+ * Calculates position size & lot size based on capital, risk percentage, and stop loss pips.
+ */
+export const calculateLotSize = ({
+  capital = 10000,
+  riskPercent = 1.0,
+  stopLossPips = 20,
+  assetType = 'forex',
+  entryPrice,
+  stopLossPrice
+}) => {
+  const cap = parseFloat(capital) || 0;
+  const riskPct = parseFloat(riskPercent) || 0;
+  const riskAmount = cap * (riskPct / 100);
+
+  let pips = parseFloat(stopLossPips) || 0;
+
+  if (entryPrice && stopLossPrice) {
+    const ep = parseFloat(entryPrice);
+    const slp = parseFloat(stopLossPrice);
+    if (!isNaN(ep) && !isNaN(slp) && ep !== slp) {
+      const diff = Math.abs(ep - slp);
+      if (assetType === 'forex') pips = Math.round(diff * 10000);
+      else if (assetType === 'forex_jpy') pips = Math.round(diff * 100);
+      else if (assetType === 'gold') pips = Math.round(diff * 10);
+      else pips = diff;
+    }
+  }
+
+  pips = Math.max(pips, 0.1);
+
+  let calculatedLots = 0;
+  if (assetType === 'forex' || assetType === 'gold') {
+    calculatedLots = riskAmount / (pips * 10);
+  } else if (assetType === 'forex_jpy') {
+    calculatedLots = riskAmount / (pips * 7.5);
+  } else {
+    calculatedLots = riskAmount / pips;
+  }
+
+  const standardLots = Math.max(calculatedLots, 0);
+  const miniLots = standardLots * 10;
+  const microLots = standardLots * 100;
+
+  const formattedLots = standardLots < 0.01 && standardLots > 0 
+    ? standardLots.toFixed(4) 
+    : standardLots.toFixed(2);
+
+  return {
+    riskAmount,
+    stopLossPips: pips,
+    standardLots,
+    miniLots: parseFloat(miniLots.toFixed(1)),
+    microLots: parseFloat(microLots.toFixed(0)),
+    formattedLots
+  };
+};
+

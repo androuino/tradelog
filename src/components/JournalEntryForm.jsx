@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useJournal } from '../context/JournalContext';
 import { fileToDataUrl } from '../utils/storage';
 import { compressBase64Image } from '../firebase';
+import { calculateLotSize } from '../utils/formatters';
 import { 
   DollarSign, 
   Percent, 
@@ -23,7 +24,9 @@ import {
   TrendingUp,
   TrendingDown,
   Save,
-  Tag
+  Tag,
+  Calculator,
+  Coins
 } from 'lucide-react';
 
 const DEFAULT_PLAN_RULES = [
@@ -89,6 +92,80 @@ export const JournalEntryForm = () => {
 
   // Active form section tab
   const [activeSection, setActiveSection] = useState('trades'); // 'trades' | 'plan' | 'emotions' | 'reflection' | 'photos'
+
+  // Auto Lot Computation State
+  const [accountCapital, setAccountCapital] = useState(() => {
+    return parseFloat(localStorage.getItem('lot_calc_balance')) || 10000;
+  });
+  const [riskPercent, setRiskPercent] = useState(() => {
+    return parseFloat(localStorage.getItem('lot_calc_risk_pct')) || 1.0;
+  });
+  const [calcStopLossPips, setCalcStopLossPips] = useState(20);
+  const [showLotCalculator, setShowLotCalculator] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('lot_calc_balance', accountCapital);
+    localStorage.setItem('lot_calc_risk_pct', riskPercent);
+  }, [accountCapital, riskPercent]);
+
+  const handleAutoCalcLotForTrade = (tradeId) => {
+    setTrades(prev => prev.map(t => {
+      if (t.id === tradeId) {
+        const assetLower = (t.asset || '').toLowerCase();
+        let assetType = 'forex';
+        if (assetLower.includes('jpy')) assetType = 'forex_jpy';
+        else if (assetLower.includes('gold') || assetLower.includes('xau')) assetType = 'gold';
+        else if (assetLower.includes('btc') || assetLower.includes('eth') || assetLower.includes('crypto')) assetType = 'crypto';
+        else if (assetLower.includes('us30') || assetLower.includes('nas') || assetLower.includes('spx')) assetType = 'index';
+
+        const slPips = parseFloat(t.stopLossPips) || parseFloat(calcStopLossPips) || 20;
+
+        const res = calculateLotSize({
+          capital: accountCapital,
+          riskPercent: riskPercent,
+          stopLossPips: slPips,
+          assetType,
+          entryPrice: t.entryPrice,
+          stopLossPrice: t.stopLossPrice
+        });
+
+        return {
+          ...t,
+          lotSize: res.formattedLots,
+          stopLossPips: res.stopLossPips
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleApplyAutoLotsToAll = () => {
+    setTrades(prev => prev.map(t => {
+      const assetLower = (t.asset || '').toLowerCase();
+      let assetType = 'forex';
+      if (assetLower.includes('jpy')) assetType = 'forex_jpy';
+      else if (assetLower.includes('gold') || assetLower.includes('xau')) assetType = 'gold';
+      else if (assetLower.includes('btc') || assetLower.includes('eth') || assetLower.includes('crypto')) assetType = 'crypto';
+      else if (assetLower.includes('us30') || assetLower.includes('nas') || assetLower.includes('spx')) assetType = 'index';
+
+      const slPips = parseFloat(t.stopLossPips) || parseFloat(calcStopLossPips) || 20;
+
+      const res = calculateLotSize({
+        capital: accountCapital,
+        riskPercent: riskPercent,
+        stopLossPips: slPips,
+        assetType,
+        entryPrice: t.entryPrice,
+        stopLossPrice: t.stopLossPrice
+      });
+
+      return {
+        ...t,
+        lotSize: res.formattedLots,
+        stopLossPips: res.stopLossPips
+      };
+    }));
+  };
 
   useEffect(() => {
     if (editingEntry) {
@@ -378,21 +455,125 @@ export const JournalEntryForm = () => {
           activeSection !== 'trades' ? 'hidden sm:block' : ''
         }`}>
           
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 mb-5 gap-2">
             <div className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5 text-emerald-400" />
               <h3 className="text-base font-bold text-white">1. Individual Trades Executed Today</h3>
             </div>
             
-            <button
-              type="button"
-              onClick={handleAddTrade}
-              className="flex items-center space-x-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Add Trade / Pair</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowLotCalculator(!showLotCalculator)}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  showLotCalculator 
+                    ? 'bg-amber-500 text-slate-950 shadow-md' 
+                    : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400'
+                }`}
+              >
+                <Calculator className="w-4 h-4" />
+                <span>⚡ Auto Lot Calc</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAddTrade}
+                className="flex items-center space-x-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Add Trade</span>
+              </button>
+            </div>
           </div>
+
+          {/* Expandable Auto Lot Calculator Widget */}
+          {showLotCalculator && (
+            <div className="mb-6 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/70 p-4 sm:p-5 rounded-2xl border border-amber-500/30 shadow-xl space-y-4 animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center space-x-2 text-amber-400">
+                  <Calculator className="w-4 h-4" />
+                  <h4 className="text-xs font-black uppercase tracking-wider">Lot Size & Risk Auto-Calculator</h4>
+                </div>
+                <span className="text-[11px] font-bold text-slate-400">
+                  Risk: <span className="text-emerald-400 font-black">${((accountCapital * riskPercent) / 100).toFixed(2)}</span> ({riskPercent}%)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. Capital ($) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Account Capital ($)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={accountCapital}
+                      onChange={(e) => setAccountCapital(parseFloat(e.target.value) || 0)}
+                      placeholder="e.g. 10000"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-7 pr-3 py-2 text-xs font-extrabold text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="absolute left-2.5 top-2 text-slate-500 text-xs font-bold">$</span>
+                  </div>
+                </div>
+
+                {/* 2. Risk % */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Risk per Trade (%)</label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={riskPercent}
+                      onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 0)}
+                      className="w-20 bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-xs font-extrabold text-white text-center focus:outline-none focus:border-emerald-500"
+                    />
+                    <div className="flex items-center space-x-1 flex-1 overflow-x-auto">
+                      {[0.5, 1.0, 1.5, 2.0].map((rp) => (
+                        <button
+                          key={rp}
+                          type="button"
+                          onClick={() => setRiskPercent(rp)}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                            riskPercent === rp
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {rp}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Stop Loss (Pips) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Default Stop Loss (Pips)</label>
+                  <input
+                    type="number"
+                    value={calcStopLossPips}
+                    onChange={(e) => setCalcStopLossPips(parseFloat(e.target.value) || 1)}
+                    placeholder="e.g. 20"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-extrabold text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* Result Output & Quick Action */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                <div className="text-xs text-slate-300">
+                  Calculated Forex Lot Size (20 pips SL): <strong className="text-emerald-400 font-extrabold text-sm">{calculateLotSize({ capital: accountCapital, riskPercent, stopLossPips: calcStopLossPips }).formattedLots} Lots</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleApplyAutoLotsToAll}
+                  className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-xl shadow-md transition-all flex items-center justify-center space-x-1 cursor-pointer self-start sm:self-auto"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>⚡ Auto-Set Lots for All Trades</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Date & Session Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 bg-slate-950 p-4 rounded-xl border border-slate-800">
@@ -453,7 +634,7 @@ export const JournalEntryForm = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
                   
                   {/* Pair / Symbol */}
                   <div>
@@ -497,6 +678,28 @@ export const JournalEntryForm = () => {
                     </div>
                   </div>
 
+                  {/* Lot Size with Auto-Calc Button */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-medium text-slate-400">Lot Size</label>
+                      <button
+                        type="button"
+                        onClick={() => handleAutoCalcLotForTrade(trade.id)}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center cursor-pointer"
+                        title="Auto Compute Lots based on Capital & Risk %"
+                      >
+                        ⚡ Auto
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. 0.50"
+                      value={trade.lotSize || ''}
+                      onChange={(e) => handleUpdateTrade(trade.id, 'lotSize', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
                   {/* P/L Amount ($) */}
                   <div>
                     <label className="block text-[11px] font-medium text-slate-400 mb-1">P/L Amount ($)</label>
@@ -536,7 +739,19 @@ export const JournalEntryForm = () => {
 
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  {/* Stop Loss Pips */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-1">SL (Pips)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 20"
+                      value={trade.stopLossPips || ''}
+                      onChange={(e) => handleUpdateTrade(trade.id, 'stopLossPips', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none"
+                    />
+                  </div>
+
                   {/* Risk Reward Ratio */}
                   <div>
                     <label className="block text-[11px] font-medium text-slate-400 mb-1">R:R Ratio</label>
