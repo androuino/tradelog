@@ -114,12 +114,6 @@ export const JournalFeed = () => {
             >
               + Log Today's Trade
             </button>
-            <button
-              onClick={resetToSampleData}
-              className="px-4 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700"
-            >
-              Load Sample Entries
-            </button>
           </div>
         </div>
       ) : (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useJournal } from '../context/JournalContext';
-import { signInWithGoogle, signInWithApple, isFirebaseConfigured, checkRedirectResult, signInWithEmailPassword, signUpWithEmailPassword } from '../firebase';
+import { signInWithGoogle, signInWithApple, isFirebaseConfigured, signInWithEmailPassword, signUpWithEmailPassword } from '../firebase';
 import {
   ShieldCheck,
   Lock,
@@ -36,16 +36,7 @@ export const LoginScreen = () => {
   const [modalProvider, setModalProvider] = useState('Google');
   const [authErrorMessage, setAuthErrorMessage] = useState('');
 
-  // Check for OAuth mobile redirect completion on page mount
-  React.useEffect(() => {
-    if (isFirebaseConfigured()) {
-      checkRedirectResult().then(user => {
-        if (user) {
-          loginWithOAuth(user.provider, user.email, user.name, user.avatar, user.id);
-        }
-      });
-    }
-  }, []);
+
 
   const handleGoogleSignIn = async () => {
     if (!isFirebaseConfigured()) {
@@ -57,24 +48,18 @@ export const LoginScreen = () => {
     setIsLoading(true);
     setAuthErrorMessage('');
 
-    // Timeout safety for mobile browsers so it never hangs
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Sign-in request timed out. Please check popup permissions.')), 15000)
-    );
-
     try {
-      const result = await Promise.race([signInWithGoogle(), timeoutPromise]);
-      if (result && result.user) {
+      const result = await signInWithGoogle();
+      if (result?.user) {
         loginWithOAuth('Google', result.user.email, result.user.name, result.user.avatar, result.user.id);
-      } else if (result && result.isRedirecting) {
-        // App is redirecting to Google on mobile
+      } else if (result?.isRedirecting) {
         return;
-      } else {
-        setAuthErrorMessage((result?.error || 'Google Sign-In failed.') + ' On mobile browsers, try using the Email tab.');
+      } else if (result?.error) {
+        setAuthErrorMessage(result.error + ' Try using the Email tab instead.');
+        setIsLoading(false);
       }
     } catch (err) {
-      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, try using the "Email" tab with password or PIN lock.');
-    } finally {
+      setAuthErrorMessage((err.message || 'Sign-in failed.') + ' Try using the Email tab instead.');
       setIsLoading(false);
     }
   };
@@ -90,15 +75,17 @@ export const LoginScreen = () => {
     setAuthErrorMessage('');
 
     try {
-      const { user, error } = await signInWithApple();
-      if (user) {
-        loginWithOAuth('Apple', user.email, user.name, user.avatar, user.id);
-      } else {
-        setAuthErrorMessage((error || 'Apple Sign-In failed.') + ' On mobile browsers, try using the Email tab.');
+      const result = await signInWithApple();
+      if (result?.user) {
+        loginWithOAuth('Apple', result.user.email, result.user.name, result.user.avatar, result.user.id);
+      } else if (result?.isRedirecting) {
+        return;
+      } else if (result?.error) {
+        setAuthErrorMessage(result.error + ' On mobile browsers, try using the Email tab.');
+        setIsLoading(false);
       }
     } catch (err) {
-      setAuthErrorMessage((err.message || 'Popup blocked.') + ' On iPhone/mobile browsers, try using the "Email" tab.');
-    } finally {
+      setAuthErrorMessage((err.message || 'Sign-in failed.') + ' On mobile browsers, try using the Email tab.');
       setIsLoading(false);
     }
   };

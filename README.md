@@ -16,5 +16,4 @@
 
     Step 3: Build & Deploy Live
 
-    npm run build
-    npx -y firebase-tools@latest deploy --only hosting
+    npm run build && npx -y firebase-tools@latest deploy --only hosting

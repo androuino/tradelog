@@ -32,6 +32,7 @@ import {
 const MainContent = () => {
   const { 
     isAuthenticated,
+    isAuthReady,
     filteredEntries, 
     activeTab, 
     setActiveTab,
@@ -49,6 +50,18 @@ const MainContent = () => {
     planAdherenceRate,
     openNewEntryForDate
   } = useJournal();
+
+  // While Firebase Auth state is resolving (e.g. after Google redirect), show a loading spinner.
+  // Without this, the app would flash the LoginScreen, fail to detect the redirect result,
+  // and stay stuck on the login page forever.
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin" />
+        <p className="text-slate-400 text-sm font-medium">Signing you in…</p>
+      </div>
+    );
+  }
 
   // If not authenticated, render LoginScreen
   if (!isAuthenticated) {

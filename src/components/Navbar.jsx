@@ -11,17 +11,20 @@ import {
   Download, 
   Upload, 
   RotateCcw,
+  Trash2,
   Sparkles,
   Lock,
   LogOut,
   User,
   ShieldCheck,
-  Trash2,
   AlertTriangle,
   BookMarked,
   Calculator,
   RefreshCw,
-  UploadCloud
+  UploadCloud,
+  Cloud,
+  CloudOff,
+  CheckCircle2
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -42,7 +45,9 @@ export const Navbar = () => {
     user,
     logout,
     refreshCloudData,
-    forcePushToCloud
+    forcePushToCloud,
+    cloudSyncStatus,
+    cloudSyncMessage
   } = useJournal();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -75,7 +80,26 @@ export const Navbar = () => {
       style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
       className="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md transition-all"
     >
-      {syncToast && (
+      {/* Persistent Cloud Sync Status Banner */}
+      {cloudSyncStatus === 'saving' && (
+        <div className="bg-slate-800/95 text-slate-300 text-xs font-medium py-1 px-4 text-center flex items-center justify-center space-x-2">
+          <Cloud className="w-3.5 h-3.5 animate-pulse text-sky-400" />
+          <span>Saving to cloud…</span>
+        </div>
+      )}
+      {cloudSyncStatus === 'saved' && (
+        <div className="bg-emerald-900/80 text-emerald-300 text-xs font-semibold py-1 px-4 text-center flex items-center justify-center space-x-2">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate max-w-xl">{cloudSyncMessage}</span>
+        </div>
+      )}
+      {cloudSyncStatus === 'error' && (
+        <div className="bg-rose-900/80 text-rose-300 text-xs font-semibold py-1 px-4 text-center flex items-center justify-center space-x-2">
+          <CloudOff className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+          <span className="truncate max-w-xl">{cloudSyncMessage}</span>
+        </div>
+      )}
+      {syncToast && cloudSyncStatus === 'idle' && (
         <div className="bg-emerald-600/95 text-white text-xs font-semibold py-1.5 px-4 text-center transition-all shadow-md flex items-center justify-center space-x-2">
           <span>☁️ {syncToast}</span>
         </div>
@@ -230,11 +254,15 @@ export const Navbar = () => {
               </label>
 
               <button
-                onClick={resetToSampleData}
-                className="p-2 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-xl transition-colors"
-                title="Reset Sample Demo Data"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to clear all journal entries and lessons?")) {
+                    resetToSampleData();
+                  }
+                }}
+                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-xl transition-colors"
+                title="Clear All Journal Data"
               >
-                <RotateCcw className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
 
@@ -277,6 +305,11 @@ export const Navbar = () => {
                         {isFirebaseConfigured() ? '☁️ Cloud Active' : '💾 Local Mode'}
                       </span>
                     </div>
+                    {user?.email && (
+                      <p className="text-[9px] font-mono text-slate-500 mt-1 truncate" title="Firestore Document Key">
+                        Sync ID: {(user.email || user.id || 'default').toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_')}
+                      </p>
+                    )}
                   </div>
 
                   <button
@@ -286,7 +319,7 @@ export const Navbar = () => {
                       const res = await refreshCloudData();
                       if (res) {
                         setSyncToast(res.message || `Synced ${res.count || 0} entries`);
-                        setTimeout(() => setSyncToast(null), 4000);
+                        setTimeout(() => setSyncToast(null), 8000);
                       }
                     }}
                     className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors mb-1 cursor-pointer"

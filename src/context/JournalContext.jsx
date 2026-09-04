@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loadEntriesFromStorage, saveEntriesToStorage, loadLessonsFromStorage, saveLessonsToStorage } from '../utils/storage';
-import { sampleEntries, sampleLessons } from '../utils/sampleData';
-import { syncJournalToCloud, fetchJournalFromCloud } from '../firebase';
+import { syncJournalToCloud, fetchJournalFromCloud, getFirebaseAuthUser, subscribeToAuthState, firebaseSignOut, checkRedirectResult, isFirebaseConfigured } from '../firebase';
 
 const JournalContext = createContext();
 
@@ -29,7 +28,7 @@ export const JournalProvider = ({ children }) => {
     if (saved && Array.isArray(saved)) {
       return saved;
     }
-    return sampleLessons;
+    return [];
   });
 
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'new' | 'calendar' | 'analytics' | 'gallery'
@@ -45,65 +44,105 @@ export const JournalProvider = ({ children }) => {
   const [filterMood, setFilterMood] = useState('all');
 
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+  // isAuthReady gates the spinner in App.jsx while Firebase processes an OAuth redirect.
+  // Start as true if the user is already known (localStorage auth) — they don't need Firebase to resolve.
+  // Start as false only when no local auth exists, meaning we might be in the middle of a Google redirect.
+  const [isAuthReady, setIsAuthReady] = useState(() => {
+    return localStorage.getItem('tradelog_auth') === 'true';
+  });
 
   const getSyncId = (u) => {
     if (!u) return null;
-    const key = u.email || u.id || 'default_user';
+    // Also check live Firebase Auth user to catch cases where localStorage is stale
+    const firebaseUser = getFirebaseAuthUser();
+    const key = firebaseUser?.email || u.email || firebaseUser?.uid || u.id || 'default_user';
     return key.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_');
   };
 
-  // Auto save to localStorage & Cloud Sync (Firebase Firestore)
+  // Cloud sync status for UI indicator: 'idle' | 'saving' | 'saved' | 'error'
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle');
+  const [cloudSyncMessage, setCloudSyncMessage] = useState('');
+
+  // Auto save to localStorage & Cloud Sync (Firebase Firestore with 800ms Debounce)
   useEffect(() => {
     saveEntriesToStorage(entries);
     saveLessonsToStorage(lessons);
 
-    // CRITICAL FIX: Only push local state TO cloud after initial cloud fetch completes for the user.
-    // This prevents empty PWA / newly installed app local state from wiping existing Cloud data.
-    if (user && isCloudLoaded) {
-      const syncId = getSyncId(user);
-      if (syncId) {
-        syncJournalToCloud(syncId, entries, lessons);
-      }
-    }
+    // Only push local state TO cloud after initial cloud fetch completes for the user.
+    if (!user || !isCloudLoaded) return;
+
+    const syncId = getSyncId(user);
+    if (!syncId) return;
+
+    const timer = setTimeout(() => {
+      setCloudSyncStatus('saving');
+      syncJournalToCloud(syncId, entries, lessons).then(res => {
+        if (res?.success) {
+          const fbUser = getFirebaseAuthUser();
+          const email = fbUser?.email || user.email;
+          setCloudSyncStatus('saved');
+          setCloudSyncMessage(`Saved • ${email} • doc: ${syncId}`);
+          setTimeout(() => setCloudSyncStatus('idle'), 6000);
+        } else {
+          setCloudSyncStatus('error');
+          setCloudSyncMessage(res?.message || 'Cloud save failed');
+        }
+      }).catch(() => {
+        setCloudSyncStatus('error');
+        setCloudSyncMessage('Cloud save failed — check connection');
+      });
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [entries, lessons, user, isCloudLoaded]);
 
   // Load Cloud Data on login / app launch & merge safely with local entries & lessons
   const refreshCloudData = async () => {
     if (!user) return { count: 0, userEmail: null, message: "User not logged in" };
+
+    // Derive the best sync ID using live Firebase Auth + stored user
+    const firebaseUser = getFirebaseAuthUser();
+    const primaryEmail = firebaseUser?.email || user.email;
+    const primaryId = firebaseUser?.uid || user.id;
+
     const primarySyncId = getSyncId(user);
-    const legacySyncId = user.id && user.id !== primarySyncId ? user.id : null;
+
+    // Build all candidate Firestore doc IDs to search across
+    const candidateIds = Array.from(new Set([
+      primarySyncId,
+      primaryEmail ? primaryEmail.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_') : null,
+      primaryEmail,
+      primaryId,
+      firebaseUser?.uid,
+      user.id
+    ])).filter(Boolean);
 
     if (!primarySyncId) return { count: 0, userEmail: user?.email, message: "Invalid sync ID" };
 
     try {
-      // Fetch primary email-based cloud doc
+      // Fetch using primary sync ID — fetchJournalFromCloud searches all candidates internally
       let cloudData = await fetchJournalFromCloud(primarySyncId);
-
-      // If legacy ID exists (e.g. from previous Google Auth UID sync), fetch legacy data too & merge
-      if (legacySyncId) {
-        const legacyData = await fetchJournalFromCloud(legacySyncId);
-        if (legacyData) {
-          cloudData = {
-            entries: [...(cloudData?.entries || []), ...(legacyData.entries || [])],
-            lessons: [...(cloudData?.lessons || []), ...(legacyData.lessons || [])]
-          };
-        }
-      }
 
       let entriesCount = 0;
       let lessonsCount = 0;
+
+      if (cloudData && cloudData.error === 'permission-denied') {
+        return {
+          count: 0,
+          lessonsCount: 0,
+          userEmail: user.email,
+          message: `⚠️ Firebase Permission Denied: Update Firestore Security Rules in Firebase Console.`
+        };
+      }
 
       if (cloudData) {
         if (cloudData.entries && Array.isArray(cloudData.entries) && cloudData.entries.length > 0) {
           entriesCount = cloudData.entries.length;
           setEntries(prev => {
             const map = new Map();
-            // Cloud entries take precedence for initial sync
             cloudData.entries.forEach(item => map.set(item.id, item));
             (prev || []).forEach(item => {
-              if (!map.has(item.id)) {
-                map.set(item.id, item);
-              }
+              if (!map.has(item.id)) map.set(item.id, item);
             });
             const merged = Array.from(map.values());
             saveEntriesToStorage(merged);
@@ -116,9 +155,7 @@ export const JournalProvider = ({ children }) => {
             const map = new Map();
             cloudData.lessons.forEach(item => map.set(item.id, item));
             (prev || []).forEach(item => {
-              if (!map.has(item.id)) {
-                map.set(item.id, item);
-              }
+              if (!map.has(item.id)) map.set(item.id, item);
             });
             const mergedLessons = Array.from(map.values());
             saveLessonsToStorage(mergedLessons);
@@ -126,11 +163,26 @@ export const JournalProvider = ({ children }) => {
           });
         }
       }
+
+      const displayEmail = primaryEmail || user.email;
+      const docKeyHint = primarySyncId;
+      let messageHint;
+
+      if (entriesCount > 0) {
+        messageHint = `✅ Pulled ${entriesCount} trades & ${lessonsCount} lessons (doc: ${docKeyHint})`;
+      } else if (user.email === 'local@tradelog.app') {
+        messageHint = `PIN mode — sign in with Email/Google to sync across devices.`;
+      } else if (user.email === 'offline@tradelog.app') {
+        messageHint = `Guest mode — sign in with Email/Google to pull cloud entries.`;
+      } else {
+        messageHint = `0 entries found for doc "${docKeyHint}". Push from iPhone first, using the same account (${displayEmail}).`;
+      }
+
       return { 
         count: entriesCount, 
         lessonsCount, 
-        userEmail: user.email,
-        message: `Synced ${entriesCount} trade logs & ${lessonsCount} lessons for ${user.email}`
+        userEmail: displayEmail,
+        message: messageHint
       };
     } catch (err) {
       console.warn("Error refreshing cloud data:", err);
@@ -144,10 +196,17 @@ export const JournalProvider = ({ children }) => {
     if (!user) return { success: false, message: "Please log in first" };
     const syncId = getSyncId(user);
     if (!syncId) return { success: false, message: "No sync ID found" };
-    const ok = await syncJournalToCloud(syncId, entries, lessons);
+    const firebaseUser = getFirebaseAuthUser();
+    const displayEmail = firebaseUser?.email || user.email;
+    const res = await syncJournalToCloud(syncId, entries, lessons);
+    if (res?.error === 'permission-denied') {
+      return { success: false, message: "⚠️ Firebase Upload Denied: Missing or insufficient permissions in Firestore Security Rules." };
+    }
     return { 
-      success: ok, 
-      message: ok ? `Pushed ${entries.length} entries & ${lessons.length} lessons to cloud for ${user.email}!` : "Cloud upload failed." 
+      success: res?.success, 
+      message: res?.success 
+        ? `☁️ Pushed ${entries.length} trades & ${lessons.length} lessons (doc: ${syncId}, account: ${displayEmail})` 
+        : (res?.message || "Cloud upload failed.") 
     };
   };
 
@@ -159,6 +218,63 @@ export const JournalProvider = ({ children }) => {
       setIsCloudLoaded(true);
     }
   }, [user]);
+
+  // ─── Firebase Auth Initialization ────────────────────────────────────────────
+  // We MUST sequence these two steps or we get a race condition:
+  //   Step 1) Await getRedirectResult() — Firebase finishes processing the OAuth
+  //           redirect before we read any auth state. Without this, onAuthStateChanged
+  //           fires with null first, shows LoginScreen, then fires again with the user.
+  //   Step 2) Subscribe to onAuthStateChanged — now the first callback always has
+  //           the correct stable state (user or truly logged-out null).
+  useEffect(() => {
+    let unsubscribe = () => {};
+
+    const initAuth = async () => {
+      // Step 1: Let Firebase process any pending OAuth redirect.
+      if (isFirebaseConfigured()) {
+        const redirectUser = await checkRedirectResult().catch(() => null);
+        if (redirectUser) {
+          const userData = {
+            id: redirectUser.id,
+            name: redirectUser.name,
+            email: (redirectUser.email || '').toLowerCase().trim(),
+            provider: redirectUser.provider,
+            avatar: redirectUser.avatar || null
+          };
+          setUser(userData);
+          setIsAuthenticated(true);
+          localStorage.setItem('tradelog_user', JSON.stringify(userData));
+          localStorage.setItem('tradelog_auth', 'true');
+        }
+      } else {
+        setIsAuthReady(true);
+      }
+
+      // Step 2: Subscribe to ongoing auth state.
+      unsubscribe = subscribeToAuthState((firebaseUser) => {
+        setIsAuthReady(true);
+
+        if (firebaseUser) {
+          const cleanEmail = (firebaseUser.email || '').toLowerCase().trim();
+          const provider = firebaseUser.providerData?.[0]?.providerId === 'apple.com' ? 'Apple' : 'Google';
+          const userData = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || cleanEmail.split('@')[0] || 'Trader',
+            email: cleanEmail,
+            provider,
+            avatar: firebaseUser.photoURL || null
+          };
+          setUser(userData);
+          setIsAuthenticated(true);
+          localStorage.setItem('tradelog_user', JSON.stringify(userData));
+          localStorage.setItem('tradelog_auth', 'true');
+        }
+      });
+    };
+
+    initAuth();
+    return () => unsubscribe();
+  }, []);
 
   // Auth helper actions
   const loginWithOAuth = (provider, email, name, avatar, userId = null) => {
@@ -219,10 +335,16 @@ export const JournalProvider = ({ children }) => {
     localStorage.setItem('tradelog_auth', 'true');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Sign out from Firebase Auth first — this is CRITICAL for Google/Apple users.
+    // Without this, onAuthStateChanged re-fires with the Firebase user and
+    // automatically re-authenticates them, making logout impossible.
+    await firebaseSignOut();
     setUser(null);
     setIsAuthenticated(false);
+    setIsCloudLoaded(false);
     localStorage.removeItem('tradelog_auth');
+    localStorage.removeItem('tradelog_user');
   };
 
   const addEntry = (newEntryData) => {
@@ -345,10 +467,7 @@ export const JournalProvider = ({ children }) => {
   };
 
   const resetToSampleData = () => {
-    setEntries(sampleEntries);
-    saveEntriesToStorage(sampleEntries);
-    setLessons(sampleLessons);
-    saveLessonsToStorage(sampleLessons);
+    clearAllEntries();
   };
 
   const clearAllEntries = () => {
@@ -357,6 +476,12 @@ export const JournalProvider = ({ children }) => {
     setLessons([]);
     saveLessonsToStorage([]);
     setSelectedEntry(null);
+    if (user && isCloudLoaded) {
+      const syncId = getSyncId(user);
+      if (syncId) {
+        syncJournalToCloud(syncId, [], []);
+      }
+    }
   };
 
   const openNewEntryForDate = (dateStr) => {
@@ -451,6 +576,7 @@ export const JournalProvider = ({ children }) => {
       // Auth
       user,
       isAuthenticated,
+      isAuthReady,
       loginWithOAuth,
       loginWithEmail,
       setupPasscode,
@@ -458,6 +584,8 @@ export const JournalProvider = ({ children }) => {
       logout,
       refreshCloudData,
       isCloudLoaded,
+      cloudSyncStatus,
+      cloudSyncMessage,
 
       // Journal data & actions
       entries,

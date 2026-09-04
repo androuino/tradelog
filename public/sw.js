@@ -1,5 +1,5 @@
 // Service worker for offline PWA caching with Network-First strategy
-const CACHE_NAME = 'tradelog-v3';
+const CACHE_NAME = 'tradelog-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -22,6 +22,7 @@ self.addEventListener('activate', (event) => {
 // Network-First strategy: Always fetch network first so updates display immediately
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     fetch(event.request)
